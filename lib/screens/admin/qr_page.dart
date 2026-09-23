@@ -33,6 +33,7 @@ class _QrPageState extends State<QrPage> {
           .from('app_settings')
           .select('value')
           .eq('key', 'qr_secret')
+          .limit(1)
           .maybeSingle();
       if (mounted) {
         setState(() {

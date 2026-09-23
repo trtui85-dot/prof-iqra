@@ -35,6 +35,7 @@ class AttendanceService {
         .from('app_settings')
         .select('value')
         .eq('key', 'qr_secret')
+        .limit(1)
         .maybeSingle();
     return res != null && res['value'] == scannedSecret;
   }
@@ -48,11 +49,12 @@ class AttendanceService {
     // 1) جلسة مفتوحة اليوم (حضور بلا انصراف) → انصراف
     final open = await db
         .from('attendance_logs')
-        .select()
+        .select('id, schedule_id, class_name, status')
         .eq('teacher_id', teacher.id)
         .eq('entry_date', today)
         .isFilter('check_out_time', null)
         .order('created_at', ascending: false)
+        .limit(1)
         .maybeSingle();
 
     if (open != null) {
@@ -261,19 +263,30 @@ class AttendanceService {
 
     final existing = await db
         .from('attendance_logs')
-        .select('id')
+        .select('id, check_out_time')
         .eq('teacher_id', teacherId)
         .eq('schedule_id', scheduleId)
         .eq('entry_date', today)
-        .maybeSingle();
+        .order('created_at', ascending: false)
+        .limit(10);
 
     final data = <String, dynamic>{
       'status': status,
       'check_in_time': checkIn?.toUtc().toIso8601String(),
       'late_minutes': status == 'late' ? lateMinutes : null,
     };
-    if (existing != null) {
-      await db.from('attendance_logs').update(data).eq('id', existing['id']);
+
+    // إن وُجدت سجلات متعددة (جلسات متكررة) نُحدّث الجلسة المفتوحة
+    // (بلا انصراف) أو الأحدث، بدلاً من الاستعلام single الذي يفشل عند التكرار.
+    Map<String, dynamic>? target;
+    if (existing.isNotEmpty) {
+      target = existing.firstWhere(
+            (r) => r['check_out_time'] == null,
+            orElse: () => existing.first,
+          );
+    }
+    if (target != null) {
+      await db.from('attendance_logs').update(data).eq('id', target['id']);
     } else {
       await db.from('attendance_logs').insert({
         'teacher_id': teacherId,

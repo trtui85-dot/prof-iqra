@@ -15,6 +15,8 @@ class AuthService {
         .select()
         .eq('phone', SecureAuth.normalizePhone(phone))
         .eq('is_active', true)
+        .order('created_at', ascending: true)
+        .limit(1)
         .maybeSingle();
     if (res == null) return null;
     if (res['pin_hash'] != SecureAuth.hashPin(pin)) return null;

@@ -23,16 +23,29 @@ class UserService {
     String? subject,
     String? section,
   }) async {
+    final normalized = SecureAuth.normalizePhone(phone);
+    final dup = await _phoneExists(normalized);
+    if (dup) throw Exception('رقم الهاتف مستخدم مسبقاً من قبل أستاذ آخر.');
     final res = await db.from('users').insert({
       'role': 'teacher',
       'name': name.trim(),
-      'phone': SecureAuth.normalizePhone(phone),
+      'phone': normalized,
       'pin_hash': SecureAuth.hashPin(pin),
       'subject': ?_trimmed(subject),
       'section': ?_trimmed(section),
       'is_active': true,
     }).select().single();
     return AppUser.fromJson(res);
+  }
+
+  Future<bool> _phoneExists(String phone) async {
+    final res = await db
+        .from('users')
+        .select('id')
+        .eq('phone', phone)
+        .limit(1)
+        .maybeSingle();
+    return res != null;
   }
 
   Future<void> updateTeacher(

@@ -61,6 +61,7 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -71,6 +72,17 @@ flutter:
 
   assets:
     - .env
+    - assets/icon/iqra_logo.png
+
+# ------------------ إعداد أيقونة التطبيق (flutter_launcher_icons) ------------------
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/iqra_logo.png"
+  min_sdk_android: 24
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/icon/iqra_logo.png"
+  remove_alpha_ios: true
 
   # To add assets to your application, add an assets section, like this:
   # assets:

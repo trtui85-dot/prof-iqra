@@ -60,17 +60,17 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Container(
-                  width: 84,
-                  height: 84,
-                  margin: const EdgeInsets.only(bottom: 20),
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: AppColors.primarySoft,
-                    shape: BoxShape.circle,
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 20),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: const Image(
+                      image: AssetImage('assets/icon/iqra_logo.png'),
+                      width: 84,
+                      height: 84,
+                      fit: BoxFit.cover,
+                    ),
                   ),
-                  child: const Icon(Icons.school_outlined,
-                      size: 42, color: AppColors.primary),
                 ),
                 Text('تسجيل الدخول',
                     style: AppText.heading(22), textAlign: TextAlign.center),

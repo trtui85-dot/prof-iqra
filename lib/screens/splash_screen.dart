@@ -69,15 +69,14 @@ class _SplashScreenState extends State<SplashScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              width: 96,
-              height: 96,
-              decoration: BoxDecoration(
-                color: AppColors.primarySoft,
-                shape: BoxShape.circle,
+            ClipRRect(
+              borderRadius: BorderRadius.circular(22),
+              child: const Image(
+                image: AssetImage('assets/icon/iqra_logo.png'),
+                width: 96,
+                height: 96,
+                fit: BoxFit.cover,
               ),
-              child: const Icon(Icons.school_outlined,
-                  size: 48, color: AppColors.primary),
             ),
             const SizedBox(height: 24),
             Text('أساتذة اقرأ', style: AppText.title(context)),

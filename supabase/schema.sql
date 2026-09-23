@@ -52,6 +52,7 @@ create table if not exists attendance_logs (
   check_in_time   timestamptz,
   check_out_time  timestamptz,
   status          text not null check (status in ('present','late','absent')),
+  late_minutes    int,                   -- عدد دقائق التأخير (عند الحضور المتأخر)
   created_at      timestamptz not null default now()
 );
 

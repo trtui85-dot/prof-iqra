@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:printing/printing.dart';
 
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import '../../models/app_user.dart';
+import '../../services/pdf_service.dart';
 import '../../services/user_service.dart';
 import 'schedule_builder_page.dart';
 import 'teacher_form_page.dart';
@@ -23,6 +25,62 @@ class _TeacherDetailPageState extends State<TeacherDetailPage> {
 
   Future<void> _schedule() async {
     await _go(ScheduleBuilderPage(teacher: widget.teacher));
+  }
+
+  Future<void> _downloadPdf() => _sharePdfAs(
+      () => PdfService().teacherProfilePdf(context, widget.teacher),
+      filename: 'iqra_teacher_profile.pdf',
+    );
+
+  Future<void> _downloadWeeklyReport() => _sharePdfAs(
+        () => PdfService().teacherWeeklyReportPdf(context, widget.teacher),
+        filename: 'iqra_weekly_report.pdf',
+      );
+
+  Future<void> _sharePdfAs(
+    Future<Uint8List> Function() generate, {
+    required String filename,
+  }) async {
+    final busy = ValueNotifier<bool>(false);
+    // نافذة انتظار أثناء توليد ملف PDF
+    // ignore: unused_result
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => ValueListenableBuilder<bool>(
+        valueListenable: busy,
+        builder: (ctx, isBusy, _) => PopScope(
+          canPop: !isBusy,
+          child: AlertDialog(
+            content: Row(children: [
+              const CircularProgressIndicator(color: AppColors.primary),
+              const SizedBox(width: 18),
+              Expanded(
+                child: Text(isBusy ? 'جارٍ التحضير...' : 'تجهيز ملف PDF...',
+                    style: AppText.normal(14)),
+              ),
+            ]),
+          ),
+        ),
+      ),
+    );
+    try {
+      final bytes = await generate();
+      if (!mounted) {
+        busy.dispose();
+        return;
+      }
+      busy.value = true;
+      await Printing.sharePdf(
+        bytes: bytes,
+        filename: filename,
+      );
+    } catch (e) {
+      if (mounted) showError(context, 'فشل إنشاء ملف PDF.');
+    } finally {
+      if (mounted) Navigator.of(context).pop();
+      busy.dispose();
+    }
   }
 
   Future<void> _go(Widget page) async {
@@ -143,6 +201,12 @@ class _TeacherDetailPageState extends State<TeacherDetailPage> {
           const SizedBox(height: 10),
           _action(Icons.calendar_month_outlined, 'بناء الجدول الأسبوعي',
               AppColors.primary, _schedule),
+          const SizedBox(height: 10),
+          _action(Icons.picture_as_pdf_outlined, 'تحميل بطاقة الأستاذ (PDF)',
+              AppColors.primary, _downloadPdf),
+          const SizedBox(height: 10),
+          _action(Icons.assignment_outlined, 'تحميل تقرير الحضور الأسبوعي (PDF)',
+              AppColors.primary, _downloadWeeklyReport),
           const SizedBox(height: 10),
           _action(Icons.pin_outlined, 'إعادة تعيين كود PIN', AppColors.late,
               _resetPin),

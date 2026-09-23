@@ -7,6 +7,7 @@ class AttendanceLog {
   final DateTime? checkIn;
   final DateTime? checkOut;
   final String status; // present | late | absent
+  final int? lateMinutes; // عدد دقائق التأخير إن وُجد
 
   const AttendanceLog({
     required this.id,
@@ -17,6 +18,7 @@ class AttendanceLog {
     this.checkIn,
     this.checkOut,
     required this.status,
+    this.lateMinutes,
   });
 
   factory AttendanceLog.fromJson(Map<String, dynamic> j) => AttendanceLog(
@@ -32,6 +34,7 @@ class AttendanceLog {
             ? DateTime.parse(j['check_out_time'] as String).toLocal()
             : null,
         status: j['status'] as String,
+        lateMinutes: (j['late_minutes'] as num?)?.toInt(),
       );
 
   String get statusLabel => switch (status) {

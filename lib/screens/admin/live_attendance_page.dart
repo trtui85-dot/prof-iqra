@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
 import '../../core/supabase.dart';
@@ -144,46 +145,215 @@ class _LiveAttendancePageState extends State<LiveAttendancePage> {
         ];
     return _rows.map((r) {
       final teacher = r['teacher'] as AppUser;
+      final status = r['status'] as String;
+      final lateMin = r['lateMinutes'] as int?;
       return Padding(
         padding: const EdgeInsets.only(bottom: 8),
         child: AppCard(
           padding: const EdgeInsets.all(13),
-          child: Row(
+          child: Column(
             children: [
-              Container(
-                width: 42,
-                height: 42,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: AppColors.primarySoft,
-                  shape: BoxShape.circle,
-                ),
-                child: Text(
-                  teacher.name.isNotEmpty ? teacher.name[0] : '?',
-                  style: AppText.bold(16).copyWith(color: AppColors.primary),
-                ),
+              Row(
+                children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: AppColors.primarySoft,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text(
+                      teacher.name.isNotEmpty ? teacher.name[0] : '?',
+                      style: AppText.bold(16).copyWith(color: AppColors.primary),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(teacher.name, style: AppText.bold(14.5)),
+                        const SizedBox(height: 2),
+                        Text(
+                            '${r['className']} • ${r['startTime']} – ${r['endTime']}',
+                            style: AppText.muted(12)),
+                        const SizedBox(height: 4),
+                        Row(children: W(r['checkIn'])..addAll(W(r['checkOut']))),
+                        if (status == 'late' && lateMin != null) ...[
+                          const SizedBox(height: 4),
+                          Text('متأخراً بـ $lateMin دقيقة',
+                              style: AppText.bold(12)
+                                  .copyWith(color: AppColors.late)),
+                        ],
+                      ],
+                    ),
+                  ),
+                  StatusChip(status),
+                ],
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(teacher.name, style: AppText.bold(14.5)),
-                    const SizedBox(height: 2),
-                    Text('${r['className']} • ${r['startTime']} – ${r['endTime']}',
-                        style: AppText.muted(12)),
-                    const SizedBox(height: 4),
-                    Row(children: W(r['checkIn'])..addAll(W(r['checkOut']))),
-                  ],
-                ),
-              ),
-              StatusChip(r['status'] as String),
+              if (status == 'absent' || status == 'upcoming') ...[
+                const SizedBox(height: 10),
+                const Divider(height: 1),
+                const SizedBox(height: 8),
+                Row(children: [
+                  Expanded(
+                    child: _markButton(
+                      label: 'حاضر',
+                      icon: Icons.check_circle_outline,
+                      fg: AppColors.present,
+                      bg: AppColors.presentSoft,
+                      onTap: () => _mark(
+                        r,
+                        status: 'present',
+                        lateMinutes: null,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _markButton(
+                      label: 'غائب',
+                      icon: Icons.cancel_outlined,
+                      fg: AppColors.absent,
+                      bg: AppColors.absentSoft,
+                      onTap: () => _mark(
+                        r,
+                        status: 'absent',
+                        lateMinutes: null,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _markButton(
+                      label: 'متأخر',
+                      icon: Icons.schedule,
+                      fg: AppColors.late,
+                      bg: AppColors.lateSoft,
+                      onTap: () => _markLate(r),
+                    ),
+                  ),
+                ]),
+              ],
             ],
           ),
         ),
       );
     }).toList();
   }
+
+  Widget _markButton({
+    required String label,
+    required IconData icon,
+    required Color fg,
+    required Color bg,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: bg,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 9),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 15, color: fg),
+              const SizedBox(width: 5),
+              Flexible(
+                child: Text(label,
+                    style: AppText.bold(12.5).copyWith(color: fg),
+                    overflow: TextOverflow.ellipsis),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _mark(
+    Map<String, dynamic> r, {
+    required String status,
+    required int? lateMinutes,
+  }) async {
+    final teacher = r['teacher'] as AppUser;
+    try {
+      await _service.mark(
+        teacherId: teacher.id,
+        scheduleId: r['scheduleId'],
+        className: r['className'],
+        startTime: r['startTime'],
+        status: status,
+        lateMinutes: lateMinutes,
+      );
+      if (!mounted) return;
+      showSuccess(context, 'تم تسجيل الحالة: ${statusChipLabel(status)}.');
+      _load(silent: true);
+    } catch (_) {
+      if (!mounted) return;
+      showError(context, 'فشل تسجيل الحالة.');
+    }
+  }
+
+  Future<void> _markLate(Map<String, dynamic> r) async {
+    final controller = TextEditingController(text: '5');
+    final submitted = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('حضر متأخراً'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '${(r['teacher'] as AppUser).name} — ${r['className']}',
+              style: AppText.muted(13),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: controller,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: const InputDecoration(
+                labelText: 'عدد دقائق التأخير',
+                suffixText: 'دقيقة',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('إلغاء')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('حفظ')),
+        ],
+      ),
+    );
+    if (submitted != true) {
+      controller.dispose();
+      return;
+    }
+    final minutes = int.tryParse(controller.text.trim()) ?? 0;
+    controller.dispose();
+    if (minutes <= 0) {
+      if (mounted) showError(context, 'أدخل عدد دقائق صحيح.');
+      return;
+    }
+    await _mark(r, status: 'late', lateMinutes: minutes);
+  }
+
+  static const Map<String, String> _labels = {
+    'present': 'حاضر',
+    'absent': 'غائب',
+    'late': 'متأخر',
+  };
+  static String statusChipLabel(String s) => _labels[s] ?? s;
 
   static String _fmt(DateTime d) =>
       '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';

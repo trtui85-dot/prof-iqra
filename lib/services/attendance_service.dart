@@ -87,6 +87,7 @@ class AttendanceService {
     final start = candidate.startToday();
     final isLate = now.isAfter(start.add(Duration(minutes: lateGraceMinutes)));
     final status = isLate ? 'late' : 'present';
+    final lateMinutes = isLate ? now.difference(start).inMinutes : null;
 
     await db.from('attendance_logs').insert({
       'teacher_id': teacher.id,
@@ -96,6 +97,7 @@ class AttendanceService {
       'check_in_time': now.toUtc().toIso8601String(),
       'check_out_time': null,
       'status': status,
+      'late_minutes': lateMinutes,
     });
 
     final time = DateFormat('HH:mm').format(now);
@@ -196,32 +198,38 @@ class AttendanceService {
           final att = AttendanceLog.fromJson(log.first);
           rows.add({
             'teacher': teacher,
+            'scheduleId': entry.id,
             'className': entry.className,
             'startTime': entry.startTime,
             'endTime': entry.endTime,
             'status': att.status,
             'checkIn': att.checkIn,
             'checkOut': att.checkOut,
+            'lateMinutes': att.lateMinutes,
           });
         } else if (now.isAfter(entry.endToday())) {
           rows.add({
             'teacher': teacher,
+            'scheduleId': entry.id,
             'className': entry.className,
             'startTime': entry.startTime,
             'endTime': entry.endTime,
             'status': 'absent',
             'checkIn': null,
             'checkOut': null,
+            'lateMinutes': null,
           });
         } else {
           rows.add({
             'teacher': teacher,
+            'scheduleId': entry.id,
             'className': entry.className,
             'startTime': entry.startTime,
             'endTime': entry.endTime,
             'status': 'upcoming',
             'checkIn': null,
             'checkOut': null,
+            'lateMinutes': null,
           });
         }
       }
@@ -229,6 +237,59 @@ class AttendanceService {
     }
     rows.sort((a, b) => a['startTime'].compareTo(b['startTime']));
     return rows;
+  }
+
+  /// تسجيل يدوي من الإدارة: حضر / لم يحضر / حضر متأخراً
+  /// [startTime] بصيغة 'HH:mm' لاحتساب وقت الدخول الفعلي عند التأخير.
+  Future<void> mark({
+    required String teacherId,
+    required String scheduleId,
+    required String className,
+    required String startTime,
+    required String status, // 'present' | 'absent' | 'late'
+    int? lateMinutes,
+  }) async {
+    final now = DateTime.now();
+    final today = DateFormat('yyyy-MM-dd').format(now);
+    DateTime? checkIn;
+    if (status == 'present') {
+      checkIn = _timeOnToday(startTime);
+    } else if (status == 'late') {
+      checkIn =
+          _timeOnToday(startTime).add(Duration(minutes: lateMinutes ?? 0));
+    }
+
+    final existing = await db
+        .from('attendance_logs')
+        .select('id')
+        .eq('teacher_id', teacherId)
+        .eq('schedule_id', scheduleId)
+        .eq('entry_date', today)
+        .maybeSingle();
+
+    final data = <String, dynamic>{
+      'status': status,
+      'check_in_time': checkIn?.toUtc().toIso8601String(),
+      'late_minutes': status == 'late' ? lateMinutes : null,
+    };
+    if (existing != null) {
+      await db.from('attendance_logs').update(data).eq('id', existing['id']);
+    } else {
+      await db.from('attendance_logs').insert({
+        'teacher_id': teacherId,
+        'schedule_id': scheduleId,
+        'class_name': className,
+        'entry_date': today,
+        ...data,
+      });
+    }
+  }
+
+  static DateTime _timeOnToday(String hhmm) {
+    final now = DateTime.now();
+    final p = hhmm.split(':');
+    return DateTime(
+        now.year, now.month, now.day, int.parse(p[0]), int.parse(p[1]));
   }
 }
 

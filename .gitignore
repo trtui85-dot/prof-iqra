@@ -55,3 +55,7 @@ google-services.json
 GoogleService-Info.plist
 *.jks
 *.keystore
+
+# المصدر الأصلي لخط ثمانية (نستخدم النسخ داخل assets/fonts فقط)
+/themanya/
+__MACOSX/

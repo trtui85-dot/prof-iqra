@@ -23,12 +23,12 @@ class ScheduleEntry {
     }
 
     return ScheduleEntry(
-      id: j['id'] as String,
-      teacherId: j['teacher_id'] as String,
+      id: j['id'] as String? ?? '',
+      teacherId: j['teacher_id'] as String? ?? '',
       dayOfWeek: (j['day_of_week'] as num?)?.toInt() ?? 1,
       startTime: fmt(j['start_time'] as String?),
       endTime: fmt(j['end_time'] as String?),
-      className: j['class_name'] as String,
+      className: j['class_name'] as String? ?? '',
     );
   }
 

@@ -14,12 +14,13 @@ class AppNotification {
   });
 
   factory AppNotification.fromJson(Map<String, dynamic> j) => AppNotification(
-        id: j['id'] as String,
-        userId: j['user_id'] as String,
-        message: j['message'] as String,
+        id: j['id'] as String? ?? '',
+        userId: j['user_id'] as String? ?? '',
+        message: j['message'] as String? ?? 'إشعار جديد',
         isRead: (j['is_read'] as bool?) ?? false,
-        createdAt:
-            DateTime.parse(j['created_at'] as String).toLocal(),
+        createdAt: DateTime.tryParse(j['created_at'] as String? ?? '')
+                ?.toLocal() ??
+            DateTime.now(),
       );
 
   String get timeAgo {

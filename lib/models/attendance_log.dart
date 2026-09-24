@@ -21,21 +21,24 @@ class AttendanceLog {
     this.lateMinutes,
   });
 
-  factory AttendanceLog.fromJson(Map<String, dynamic> j) => AttendanceLog(
-        id: j['id'] as String,
-        teacherId: j['teacher_id'] as String,
-        scheduleId: j['schedule_id'] as String?,
-        className: j['class_name'] as String?,
-        entryDate: (j['entry_date'] as String?)?.substring(0, 10) ?? '',
-        checkIn: j['check_in_time'] != null
-            ? DateTime.parse(j['check_in_time'] as String).toLocal()
-            : null,
-        checkOut: j['check_out_time'] != null
-            ? DateTime.parse(j['check_out_time'] as String).toLocal()
-            : null,
-        status: j['status'] as String,
-        lateMinutes: (j['late_minutes'] as num?)?.toInt(),
-      );
+  factory AttendanceLog.fromJson(Map<String, dynamic> j) {
+    final rawDate = j['entry_date'] as String? ?? '';
+    return AttendanceLog(
+      id: j['id'] as String? ?? '',
+      teacherId: j['teacher_id'] as String? ?? '',
+      scheduleId: j['schedule_id'] as String?,
+      className: j['class_name'] as String?,
+      entryDate: rawDate.length >= 10 ? rawDate.substring(0, 10) : rawDate,
+      checkIn: j['check_in_time'] != null
+          ? DateTime.tryParse(j['check_in_time'] as String)?.toLocal()
+          : null,
+      checkOut: j['check_out_time'] != null
+          ? DateTime.tryParse(j['check_out_time'] as String)?.toLocal()
+          : null,
+      status: (j['status'] as String?) ?? 'absent',
+      lateMinutes: (j['late_minutes'] as num?)?.toInt(),
+    );
+  }
 
   String get statusLabel => switch (status) {
         'present' => 'حاضر',

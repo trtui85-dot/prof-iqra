@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
@@ -5,6 +7,7 @@ import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import '../../models/app_notification.dart';
 import '../../models/app_user.dart';
+import '../../services/attendance_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/fcm_service.dart';
 import '../../services/local_notif_service.dart';
@@ -29,6 +32,7 @@ class _TeacherHomeState extends State<TeacherHome> {
   int _unread = 0;
   late final List<Widget> _tabs;
   sb.RealtimeChannel? _channel;
+  Timer? _endingTimer;
 
   @override
   void initState() {
@@ -40,6 +44,14 @@ class _TeacherHomeState extends State<TeacherHome> {
       NotificationsPage(teacher: widget.user),
     ];
     _init();
+    // فحص كل دقيقة: إن انتهت الحصة ولا توجد بعدها حصة يُغلق تلقائياً
+    _endingTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      try {
+        // ignore: discarded_futures
+        AttendanceService()
+            .autoCloseExpiredSessions(widget.user.id, DateTime.now());
+      } catch (_) {}
+    });
   }
 
   Future<void> _init() async {
@@ -66,6 +78,7 @@ class _TeacherHomeState extends State<TeacherHome> {
 
   @override
   void dispose() {
+    _endingTimer?.cancel();
     _channel?.unsubscribe();
     super.dispose();
   }

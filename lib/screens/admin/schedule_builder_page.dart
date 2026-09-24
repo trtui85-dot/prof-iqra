@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../core/errors.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import '../../models/app_user.dart';
@@ -234,7 +235,7 @@ class _ScheduleFormDialogState extends State<_ScheduleFormDialog> {
       if (mounted) Navigator.pop(context);
     } catch (e) {
       if (mounted) {
-        showError(context, 'فشل الحفظ: ${e.toString().replaceAll('Exception: ', '')}');
+        showError(context, arabicErrorMessage(e));
       }
     } finally {
       if (mounted) setState(() => _saving = false);

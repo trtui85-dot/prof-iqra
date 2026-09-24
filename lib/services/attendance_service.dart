@@ -6,6 +6,7 @@ import '../models/attendance_log.dart';
 import '../models/schedule_entry.dart';
 import 'notification_service.dart';
 import 'schedule_service.dart';
+import 'local_notif_service.dart';
 
 enum ScanKind { checkIn, checkOut }
 
@@ -44,17 +45,23 @@ class AttendanceService {
     return res != null && res['value'] == scannedSecret;
   }
 
-  /// مسح ذكي: يُسجّل الغياب التلقائي للحصص الماضية بلا مسح،
-  /// ثم يُسجّل حضور/انصراف الحصة الحالية.
+  /// مسح ذكي: يُسجّل الغياب التلقائي، ويُغلق الحصص المنتهية بلا حصة تالية،
+  /// ثم يُحدّد إن كان المسح انصرافاً أو انتقاءً للحصة التالية أو حضوراً.
   /// يُرمى AttendanceException مع رسالة واضحة إن لم تكن حصة مجدولة.
   Future<ScanResult> scan(AppUser teacher) async {
     final now = DateTime.now();
     final today = DateFormat('yyyy-MM-dd').format(now);
 
-    // تسجيل الغيابات التلقائية للحصص التي تجاوزت حد الـ 90 دقيقة
+    // 1) تسجيل الغياب التلقائي للحصص المتجاوزة حد الـ 90 دقيقة
     await autoMarkAbsentsToday();
+    // 2) إغلاق تلقائي لحصة انتهت ولا توجد بعدها حصة
+    await autoCloseExpiredSessions(teacher.id, now);
 
-    // 1) جلسة مفتوحة اليوم (حضور بلا انصراف) → انصراف
+    // 3) حصص اليوم والحصة الجارية حالياً
+    final entries = await ScheduleService().listForTeacher(teacher.id);
+    final current = _currentEntry(entries, now);
+
+    // 4) جلسة مفتوحة (حضور بلا انصراف)؟
     final open = await db
         .from('attendance_logs')
         .select('id, schedule_id, class_name, status')
@@ -67,33 +74,109 @@ class AttendanceService {
 
     if (open != null) {
       final log = AttendanceLog.fromJson(open);
-      final entry =
+      final oEntry =
           log.scheduleId != null ? await _entryById(log.scheduleId!) : null;
-      await db
-          .from('attendance_logs')
-          .update({'check_out_time': now.toUtc().toIso8601String()})
-          .eq('id', log.id);
+
+      // أ) نفس الحصة ما زالت جارية → انصراف عادي
+      if (current != null && log.scheduleId == current.id) {
+        await _closeLog(log.id, now);
+        await NotificationService().notifyUser(
+          teacher.id,
+          'تم تسجيل انصرافك عن حصة «${current.className}».',
+        );
+        return ScanResult(
+          kind: ScanKind.checkOut,
+          entry: current,
+          status: log.status,
+          when: now,
+        );
+      }
+
+      // ب) الحصة المفتوحة انتهت وهناك حصة جديدة جارية → يُغلق القديمة
+      //    ويُدخل الأستاذ مباشرةً إلى الحصة الجديدة (يُحتسب له حضورها)
+      if (oEntry != null && now.isAfter(oEntry.endToday()) && current != null) {
+        await _closeLog(log.id, oEntry.endToday());
+        return _checkIn(teacher, current, now, today);
+      }
+
+      // ج) لا حصة جارية الآن (استراحة/انتهى كل شيء) → انصراف عادي
+      await _closeLog(log.id, now);
       await NotificationService().notifyUser(
         teacher.id,
-        'تم تسجيل انصرافك عن حصة «${log.className ?? '—'}».',
+        'تم تسجيل انصرافك عن حصة «${oEntry?.className ?? log.className ?? '—'}».',
       );
       return ScanResult(
         kind: ScanKind.checkOut,
-        entry: entry ?? _emptyEntry(log.className),
+        entry: oEntry ?? _emptyEntry(log.className),
         status: log.status,
         when: now,
       );
     }
 
-    // 2) لا جلسة مفتوحة → تسجيل حضور، بشرط وجود حصة حالية
-    final entries = await ScheduleService().listForTeacher(teacher.id);
-    final candidate = _currentEntry(entries, now);
-    if (candidate == null) {
+    // 5) لا جلسة مفتوحة → تسجيل حضور بشرط وجود حصة حالية
+    if (current == null) {
       throw AttendanceException(
         'لا توجد حصة مجدولة لك الآن ضمن جدولك.',
       );
     }
+    return _checkIn(teacher, current, now, today);
+  }
 
+  /// إغلاق تلقائي: إذا انتهى موعد الحصة ولا توجد حصة تالية بعدها ولم يمسح
+  /// الأستاذ للانصراف، يُغلق السجل تلقائياً (حاضر) عند نهاية الحصة
+  /// ويُخطَر الأستاذ: «لقد انتهت حصتك».
+  Future<void> autoCloseExpiredSessions(String teacherId, DateTime now) async {
+    final today = DateFormat('yyyy-MM-dd').format(now);
+    final openLogs = await db
+        .from('attendance_logs')
+        .select('id, schedule_id, class_name, status')
+        .eq('teacher_id', teacherId)
+        .eq('entry_date', today)
+        .isFilter('check_out_time', null);
+    if (openLogs.isEmpty) return;
+
+    final entries = await ScheduleService().listForTeacher(teacherId);
+    for (final row in openLogs) {
+      final log = AttendanceLog.fromJson(row);
+      final sid = log.scheduleId;
+      if (sid == null || sid.isEmpty) continue;
+      final entry = await _entryById(sid);
+      if (entry == null) continue;
+      if (now.isBefore(entry.endToday())) continue; // الحصة لم تنتهِ بعد
+
+      // هل توجد حصة تالية؟ إن نعم يُترك السجل ليُغلق عند مسح الحصة الجديدة
+      final hasNext = entries.any((e) =>
+          e.id != entry.id && !e.startToday().isBefore(entry.endToday()));
+      if (hasNext) continue;
+
+      await _closeLog(log.id, entry.endToday());
+      await NotificationService().notifyUser(
+        teacherId,
+        'لقد انتهت حصتك «${entry.className}» وسُجّل حضورك.',
+      );
+      try {
+        await LocalNotifService.showNow(
+          title: 'انتهت الحصة',
+          body: 'حصتك «${entry.className}» انتهت — سُجّلت حاضراً.',
+        );
+      } catch (_) {}
+    }
+  }
+
+  Future<void> _closeLog(String id, DateTime when) async {
+    await db
+        .from('attendance_logs')
+        .update({'check_out_time': when.toUtc().toIso8601String()})
+        .eq('id', id);
+  }
+
+  /// تسجيل حضور/انصراف على سجل جديد (المسح الأول لحصة جارية/جديدة)
+  Future<ScanResult> _checkIn(
+    AppUser teacher,
+    ScheduleEntry candidate,
+    DateTime now,
+    String today,
+  ) async {
     final start = candidate.startToday();
     final isLate = now.isAfter(start.add(Duration(minutes: lateGraceMinutes)));
     final status = isLate ? 'late' : 'present';
@@ -192,6 +275,20 @@ class AttendanceService {
       await NotificationService().notifyAdmins(
         'الأستاذ $teacherName غاب عن حصة «${entry.className}» (لم يسجّل حضوره).',
       );
+    }
+  }
+
+  /// تنظيف يومي شامل: غيابات تلقائية + إغلاق تلقائي للحصص المنتهية
+  Future<void> runTodayHousekeeping() async {
+    await autoMarkAbsentsToday();
+    final now = DateTime.now();
+    final res = await db
+        .from('users')
+        .select('id')
+        .eq('role', 'teacher')
+        .eq('is_active', true);
+    for (final t in res) {
+      await autoCloseExpiredSessions(t['id'] as String? ?? '', now);
     }
   }
 

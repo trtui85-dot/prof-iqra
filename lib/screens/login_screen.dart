@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../core/errors.dart';
 import '../core/theme.dart';
 import '../core/widgets.dart';
 import '../models/app_user.dart';
@@ -43,7 +44,7 @@ class _LoginScreenState extends State<LoginScreen> {
         MaterialPageRoute(builder: (_) => next),
       );
     } catch (e) {
-      if (mounted) showError(context, 'تعذّر الاتصال: ${e.toString().replaceAll('Exception: ', '')}');
+      if (mounted) showError(context, arabicErrorMessage(e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }

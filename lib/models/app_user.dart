@@ -20,10 +20,10 @@ class AppUser {
   bool get isAdmin => role == 'admin';
 
   factory AppUser.fromJson(Map<String, dynamic> j) => AppUser(
-        id: j['id'] as String,
-        role: j['role'] as String,
-        name: j['name'] as String,
-        phone: j['phone'] as String,
+        id: j['id'] as String? ?? '',
+        role: (j['role'] as String?) ?? 'teacher',
+        name: j['name'] as String? ?? '',
+        phone: j['phone'] as String? ?? '',
         subject: j['subject'] as String?,
         section: j['section'] as String?,
         isActive: (j['is_active'] as bool?) ?? true,
@@ -39,10 +39,10 @@ class AppUser {
       };
 
   factory AppUser.fromSession(Map<String, dynamic> j) => AppUser(
-        id: j['id'] as String,
-        role: j['role'] as String,
-        name: j['name'] as String,
-        phone: j['phone'] as String,
+        id: j['id'] as String? ?? '',
+        role: (j['role'] as String?) ?? 'teacher',
+        name: j['name'] as String? ?? '',
+        phone: j['phone'] as String? ?? '',
         subject: j['subject'] as String?,
         section: j['section'] as String?,
       );

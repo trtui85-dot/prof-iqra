@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../core/errors.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import '../../models/app_user.dart';
@@ -79,7 +80,7 @@ class _TeacherFormPageState extends State<TeacherFormPage> {
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
       if (mounted) {
-        showError(context, 'فشل الحفظ: ${e.toString().replaceAll('Exception: ', '')}');
+        showError(context, arabicErrorMessage(e));
       }
     } finally {
       if (mounted) {

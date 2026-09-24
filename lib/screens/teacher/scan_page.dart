@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
+import '../../core/errors.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import '../../models/app_user.dart';
@@ -75,7 +76,7 @@ class _ScanPageState extends State<ScanPage> {
         setState(() {
           _phase = _Phase.error;
           _result = null;
-          _error = e.toString();
+          _error = e is AttendanceException ? e.message : arabicErrorMessage(e);
         });
       }
     }

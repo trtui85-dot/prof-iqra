@@ -91,6 +91,16 @@ flutter:
           weight: 300
         - asset: assets/fonts/Thmanyah-Black.otf
           weight: 900
+    - family: ThmanyahSerif
+      fonts:
+        - asset: assets/fonts/ThmanyahSerif-Light.otf
+          weight: 300
+        - asset: assets/fonts/ThmanyahSerif-Regular.otf
+          weight: 400
+        - asset: assets/fonts/ThmanyahSerif-Medium.otf
+          weight: 500
+        - asset: assets/fonts/ThmanyahSerif-Bold.otf
+          weight: 700
 
 # ------------------ إعداد أيقونة التطبيق (flutter_launcher_icons) ------------------
 flutter_launcher_icons:

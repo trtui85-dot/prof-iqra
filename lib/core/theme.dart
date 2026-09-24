@@ -23,6 +23,8 @@ class AppColors {
 }
 
 const _fontFamily = 'Thmanyah';
+// عائلة العرض (Serif Display) للعناوين: خط طويل أنيق والحروف متصلة، وزن رفيع
+const _serifFamily = 'ThmanyahSerif';
 
 TextStyle _ar(double size, FontWeight w, Color c, {double? height}) {
   return TextStyle(
@@ -35,10 +37,21 @@ TextStyle _ar(double size, FontWeight w, Color c, {double? height}) {
   );
 }
 
+TextStyle _serif(double size, Color c, {FontWeight w = FontWeight.w400}) {
+  return TextStyle(
+    fontFamily: _serifFamily,
+    fontSize: size,
+    fontWeight: w,
+    color: c,
+    height: 1.35,
+    letterSpacing: 0,
+  );
+}
+
 class AppText {
   static TextStyle title(BuildContext context) =>
-      _ar(22, FontWeight.w700, AppColors.textDark);
-  static TextStyle heading(double s) => _ar(s, FontWeight.w700, AppColors.textDark);
+      _serif(22, AppColors.textDark);
+  static TextStyle heading(double s) => _serif(s, AppColors.textDark);
   static TextStyle bold(double s) => _ar(s, FontWeight.w600, AppColors.textDark);
   static TextStyle normal(double s, {Color c = AppColors.textDark}) =>
       _ar(s, FontWeight.w400, c);
@@ -78,10 +91,10 @@ ThemeData buildTheme() {
       systemOverlayStyle: SystemUiOverlayStyle.dark,
       iconTheme: IconThemeData(color: AppColors.textDark),
       titleTextStyle: TextStyle(
-        fontFamily: _fontFamily,
+        fontFamily: _serifFamily,
         color: AppColors.textDark,
         fontSize: 19,
-        fontWeight: FontWeight.w700,
+        fontWeight: FontWeight.w400,
       ),
     ),
     inputDecorationTheme: InputDecorationTheme(

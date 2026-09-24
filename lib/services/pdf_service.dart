@@ -1,4 +1,4 @@
-﻿import 'dart:typed_data';
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -14,9 +14,9 @@ import '../models/attendance_log.dart';
 import '../models/schedule_entry.dart';
 import 'schedule_service.dart';
 
-/// ØªÙˆÙ„ÙŠØ¯ Ø¨Ø·Ø§Ù‚Ø© Ø§Ù„Ø£Ø³ØªØ§Ø° ÙƒÙ…Ù„Ù PDF (Ø§Ù„Ù…Ø¹Ù„ÙˆÙ…Ø§Øª + Ø¬Ø¯ÙˆÙ„ Ø§Ù„Ø­ØµØµ Ø§Ù„ÙƒØ§Ù…Ù„).
-/// ØªÙØ±Ø³Ù… Ø§Ù„Ø¨Ø·Ø§Ù‚Ø© Ø¨Ù…Ø­Ø±Ùƒ Flutter Ù†ÙØ³Ù‡ ÙØªØ¸Ù‡Ø± Ø§Ù„Ø¹Ø±Ø¨ÙŠØ© Ù…ÙƒÙˆÙ‘Ù†Ø©Ù‹ Ø¨Ø´ÙƒÙ„ ØµØ­ÙŠØ­ØŒ
-/// Ø«Ù… ØªÙÙ„ØªÙ‚Ø· ÙƒØµÙˆØ±Ø© Ø¹Ø§Ù„ÙŠØ© Ø§Ù„Ø¯Ù‚Ø© ÙˆØªÙØ¯Ù…Ø¬ ÙÙŠ ØµÙØ­Ø© PDF.
+/// توليد بطاقة الأستاذ كملف PDF (المعلومات + جدول الحصص الكامل).
+/// تُرسم البطاقة بمحرك Flutter نفسه فتظهر العربية مكوّنةً بشكل صحيح،
+/// ثم تُلتقط كصورة عالية الدقة وتُدمج في صفحة PDF.
 class PdfService {
   static const double _cardWidth = 540;
   static const double _dpr = 3.0;
@@ -25,64 +25,111 @@ class PdfService {
     BuildContext context,
     AppUser teacher,
   ) async {
-        if (!context.mounted) throw Exception('context disposed');
     final schedule = await ScheduleService().listForTeacher(teacher.id);
     if (!context.mounted) throw Exception('context disposed');
-    final card = _buildTeacherCard(teacher, schedule);
-    return _toPdf(context, card, '${teacher.name} â€” Ø¨Ø·Ø§Ù‚Ø© Ø§Ù„Ø£Ø³ØªØ§Ø°');
+    final pages = _teacherPages(teacher, schedule);
+    return _toPdf(context, pages, '${teacher.name} — بطاقة الأستاذ');
   }
 
-  /// ØªÙ‚Ø±ÙŠØ± Ø£Ø³Ø¨ÙˆØ¹ÙŠ Ù„Ù„Ø£Ø³ØªØ§Ø° (ÙˆØ±Ù‚Ø© A4): Ù…Ù„Ø®Øµ Ø§Ù„Ø­Ø¶ÙˆØ± ÙˆØ§Ù„ØºÙŠØ§Ø¨
-  /// ÙˆØ¹Ø¯Ø¯Ù‡Ø§ + Ø³Ø§Ø¹Ø§Øª Ø­Ø¶ÙˆØ± Ø§Ù„Ø­ØµØµ ÙˆÙ…Ø¬Ù…ÙˆØ¹Ù‡Ø§ + Ø³Ø§Ø¹Ø§Øª Ø§Ù„ØºÙŠØ§Ø¨ ÙˆÙ…Ø¬Ù…ÙˆØ¹Ù‡Ø§.
+  /// تقرير أسبوعي للأستاذ (ورقة A4): ملخص الحضور والغياب
+  /// وعددها + ساعات حضور الحصص ومجموعها + ساعات الغياب ومجموعها.
   Future<Uint8List> teacherWeeklyReportPdf(
     BuildContext context,
     AppUser teacher, {
     DateTime? date,
   }) async {
-        if (!context.mounted) throw Exception('context disposed');
+    if (!context.mounted) throw Exception('context disposed');
     final data = await _weeklyData(teacher, date ?? DateTime.now());
     if (!context.mounted) throw Exception('context disposed');
-    final card = _buildWeeklyReport(teacher, data);
-    return _toPdf(context, card, '${teacher.name} â€” ØªÙ‚Ø±ÙŠØ± Ø§Ù„Ø­Ø¶ÙˆØ± Ø§Ù„Ø£Ø³Ø¨ÙˆØ¹ÙŠ');
+    final pages = _weeklyPages(teacher, data);
+    return _toPdf(context, pages, '${teacher.name} — تقرير الحضور الأسبوعي');
   }
 
-  Future<Uint8List> _toPdf(BuildContext context, Widget card, String title) async {
-    if (!context.mounted) throw Exception('context disposed');
-    final rendered = await _capture(context, card);
-
-    final bytes = rendered.bytes;
-    final logical = rendered.logicalSize;
-    final wPt = logical.width * _dpr;
-    final hPt = logical.height * _dpr;
-
+  /// تدمج كل [cards] في صفحات A4 مستقلة، كل واحدة بأكبر حجم ممكن (كبير وواضح).
+  Future<Uint8List> _toPdf(
+      BuildContext context, List<Widget> cards, String title) async {
     const margin = 24.0;
     final pageW = PdfPageFormat.a4.width - margin * 2;
     final pageH = PdfPageFormat.a4.height - margin * 2;
-    final scale = (pageW / wPt < pageH / hPt)
-        ? pageW / wPt
-        : pageH / hPt;
-    final w = wPt * scale;
-    final h = hPt * scale;
 
     final doc = pw.Document(title: title);
-    doc.addPage(
-      pw.Page(
-        pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.all(margin),
-        build: (_) => pw.Center(
-          child: pw.Image(pw.MemoryImage(bytes), width: w, height: h),
+    for (final card in cards) {
+      if (!context.mounted) throw Exception('context disposed');
+      final rendered = await _capture(context, card);
+      final bytes = rendered.bytes;
+      final logical = rendered.logicalSize;
+      final wPt = logical.width * _dpr;
+      final hPt = logical.height * _dpr;
+      final scale =
+          (pageW / wPt < pageH / hPt) ? pageW / wPt : pageH / hPt;
+      final w = wPt * scale;
+      final h = hPt * scale;
+      doc.addPage(
+        pw.Page(
+          pageFormat: PdfPageFormat.a4,
+          margin: const pw.EdgeInsets.all(margin),
+          build: (_) => pw.Center(
+            child: pw.Image(pw.MemoryImage(bytes), width: w, height: h),
+          ),
         ),
-      ),
-    );
+      );
+    }
     return doc.save();
   }
 
-  Widget _buildTeacherCard(AppUser teacher, List<ScheduleEntry> schedule) {
+  /// بطاقة الأستاذ: تُقسّم الجدول على عدة صفحات A4 كبيرة.
+  List<Widget> _teacherPages(AppUser teacher, List<ScheduleEntry> schedule) {
     final totalMinutes =
         schedule.fold<int>(0, (sum, e) => sum + _timeToMin(e.endTime) - _timeToMin(e.startTime));
 
     final today = DateFormat('yyyy/MM/dd').format(DateTime.now());
 
+    final rows = <Widget>[];
+    if (schedule.isEmpty) {
+      rows.add(Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Text('لا توجد حصص مجدولة بعد.', style: AppText.muted(13)),
+      ));
+    } else {
+      rows.addAll(_scheduleTable(schedule));
+    }
+
+    const firstCap = 8;
+    const nextCap = 12;
+    final chunks = _chunkRows(rows, firstCap, nextCap);
+    if (chunks.isEmpty) {
+      return [
+        _teacherPageShell(
+          teacher: teacher,
+          today: today,
+          totalMinutes: totalMinutes,
+          scheduleCount: schedule.length,
+          rows: rows,
+          isFirst: true,
+        ),
+      ];
+    }
+    return [
+      for (var i = 0; i < chunks.length; i++)
+        _teacherPageShell(
+          teacher: teacher,
+          today: today,
+          totalMinutes: totalMinutes,
+          scheduleCount: schedule.length,
+          rows: chunks[i],
+          isFirst: i == 0,
+        ),
+    ];
+  }
+
+  Widget _teacherPageShell({
+    required AppUser teacher,
+    required String today,
+    required int totalMinutes,
+    required int scheduleCount,
+    required List<Widget> rows,
+    required bool isFirst,
+  }) {
     Row headerLine(IconData icon, String label, String value) => Row(children: [
           Icon(icon, size: 15, color: AppColors.primaryLight),
           const SizedBox(width: 8),
@@ -109,90 +156,95 @@ class PdfService {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Row(
-                children: [
-                  Container(
-                    width: 38,
-                    height: 38,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary,
-                      shape: BoxShape.circle,
+              if (isFirst) ...[
+                Row(
+                  children: [
+                    Container(
+                      width: 38,
+                      height: 38,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: AppColors.primary,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Text('أ',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w700)),
                     ),
-                    child: const Text('Ø£',
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.w700)),
-                  ),
-                  const SizedBox(width: 10),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Ø£Ø³Ø§ØªØ°Ø© Ø§Ù‚Ø±Ø£',
-                          style: AppText.bold(15).copyWith(color: AppColors.primary)),
-                      Text('Ø¨Ø·Ø§Ù‚Ø© Ø§Ù„Ø£Ø³ØªØ§Ø° â€” $today',
-                          style: AppText.muted(11)),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              Divider(color: AppColors.border),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Container(
-                    width: 58,
-                    height: 58,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: AppColors.primarySoft,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Text(
-                      teacher.name.isNotEmpty ? teacher.name[0] : '?',
-                      style: AppText.heading(24).copyWith(color: AppColors.primary),
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
+                    const SizedBox(width: 10),
+                    Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(teacher.name, style: AppText.heading(19)),
-                        const SizedBox(height: 4),
-                        Text(teacher.phone, style: AppText.muted(13)),
+                        Text('أساتذة اقرأ',
+                            style: AppText.bold(15).copyWith(color: AppColors.primary)),
+                        Text('بطاقة الأستاذ — $today',
+                            style: AppText.muted(11)),
                       ],
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              headerLine(Icons.menu_book_outlined, 'Ø§Ù„Ù…Ø§Ø¯Ø©', teacher.subject ?? 'â€”'),
-              const SizedBox(height: 8),
-              headerLine(Icons.class_outlined, 'Ø§Ù„Ø£Ù‚Ø³Ø§Ù…', teacher.section ?? 'â€”'),
-              const SizedBox(height: 16),
-              Divider(color: AppColors.border),
-              const SizedBox(height: 8),
-              Text('Ø§Ù„Ø¬Ø¯ÙˆÙ„ Ø§Ù„Ø£Ø³Ø¨ÙˆØ¹ÙŠ Ù„Ù„Ø­ØµØµ',
-                  style: AppText.bold(15).copyWith(color: AppColors.primary)),
-              const SizedBox(height: 10),
-              if (schedule.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Text('Ù„Ø§ ØªÙˆØ¬Ø¯ Ø­ØµØµ Ù…Ø¬Ø¯ÙˆÙ„Ø© Ø¨Ø¹Ø¯.',
-                      style: AppText.muted(13)),
-                )
-              else
-                ..._scheduleTable(schedule),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Divider(color: AppColors.border),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Container(
+                      width: 58,
+                      height: 58,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: AppColors.primarySoft,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Text(
+                        teacher.name.isNotEmpty ? teacher.name[0] : '?',
+                        style: AppText.heading(24).copyWith(color: AppColors.primary),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(teacher.name, style: AppText.heading(19)),
+                          const SizedBox(height: 4),
+                          Text(teacher.phone, style: AppText.muted(13)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                headerLine(Icons.menu_book_outlined, 'المادة', teacher.subject ?? '—'),
+                const SizedBox(height: 8),
+                headerLine(Icons.class_outlined, 'الأقسام', teacher.section ?? '—'),
+                const SizedBox(height: 16),
+                Divider(color: AppColors.border),
+                const SizedBox(height: 8),
+                Text('الجدول الأسبوعي للحصص',
+                    style: AppText.bold(15).copyWith(color: AppColors.primary)),
+                const SizedBox(height: 10),
+              ] else ...[
+                Row(children: [
+                  Icon(Icons.menu_book, size: 16, color: AppColors.primary),
+                  const SizedBox(width: 8),
+                  Text('استمرار الجدول الأسبوعي للحصص',
+                      style: AppText.bold(15).copyWith(color: AppColors.primary)),
+                ]),
+                const SizedBox(height: 8),
+                Divider(color: AppColors.border),
+                const SizedBox(height: 10),
+              ],
+              ...rows,
               const SizedBox(height: 12),
               Divider(color: AppColors.border),
               const SizedBox(height: 10),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Ø¥Ø¬Ù…Ø§Ù„ÙŠ Ø§Ù„Ø­ØµØµ Ø§Ù„Ø£Ø³Ø¨ÙˆØ¹ÙŠØ©: ${schedule.length} Ø­ØµØ©',
+                  Text('إجمالي الحصص الأسبوعية: $scheduleCount حصة',
                       style: AppText.bold(13)),
                   Text(_fmtDuration(totalMinutes),
                       style: AppText.muted(12)),
@@ -251,7 +303,7 @@ class PdfService {
                 color: AppColors.primary,
                 borderRadius: BorderRadius.circular(7),
               ),
-              child: Text('${e.startTime} â€“ ${e.endTime}',
+              child: Text('${e.startTime} – ${e.endTime}',
                   style: AppText.white(11.5)),
             ),
             const SizedBox(width: 10),
@@ -274,23 +326,23 @@ class PdfService {
     final h = minutes ~/ 60;
     final m = minutes % 60;
     final parts = <String>[];
-    if (h > 0) parts.add('$h Ø³Ø§Ø¹Ø©');
-    if (m > 0) parts.add('$m Ø¯Ù‚ÙŠÙ‚Ø©');
-    return parts.isEmpty ? '0 Ø¯Ù‚ÙŠÙ‚Ø©' : parts.join(' Ùˆ');
+    if (h > 0) parts.add('$h ساعة');
+    if (m > 0) parts.add('$m دقيقة');
+    return parts.isEmpty ? '0 دقيقة' : parts.join(' و');
   }
 
   static String _fmtHoursShort(int minutes) {
     final h = minutes ~/ 60;
     final m = minutes % 60;
-    if (h == 0) return '$m Ø¯';
-    if (m == 0) return '$h Ø³';
-    return '$h Ø³ $m Ø¯';
+    if (h == 0) return '$m د';
+    if (m == 0) return '$h س';
+    return '$h س $m د';
   }
 
   static DateTime _mondayOf(DateTime d) => DateTime(d.year, d.month, d.day)
       .subtract(Duration(days: d.weekday - DateTime.monday));
 
-  /// Ø¬Ù…Ø¹ Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ø£Ø³Ø¨ÙˆØ¹ (Ø§Ù„Ø§Ø«Ù†ÙŠÙ†..Ø§Ù„Ø£Ø­Ø¯) Ù„Ù„Ø£Ø³ØªØ§Ø°: ÙƒÙ„ Ø­ØµØ© ÙˆØ­Ø§Ù„ØªÙ‡Ø§ ÙˆØ³Ø§Ø¹Ø§ØªÙ‡Ø§.
+  /// جمع بيانات الأسبوع (الاثنين..الأحد) للأستاذ: كل حصة وحالتها وساعاتها.
   Future<_WeekReport> _weeklyData(AppUser teacher, DateTime date) async {
     final start = _mondayOf(date);
     final end = start.add(const Duration(days: 6));
@@ -364,7 +416,8 @@ class PdfService {
         attendedMin, absentMin);
   }
 
-  Widget _buildWeeklyReport(AppUser teacher, _WeekReport r) {
+  /// التقرير الأسبوعي مقسّماً على صفحات A4: أول صفحة ملخص، والباقي تفاصيل.
+  List<Widget> _weeklyPages(AppUser teacher, _WeekReport r) {
     final dateFmt = DateFormat('yyyy/MM/dd');
     final byDay = <int, List<_WeekItem>>{};
     for (final it in r.items) {
@@ -379,7 +432,10 @@ class PdfService {
     final bgRed = AppColors.absentSoft;
     final fgRed = AppColors.absent;
 
-    return Directionality(
+    final pages = <Widget>[];
+
+    // صفحة الملخص الأولى
+    pages.add(Directionality(
       textDirection: ui.TextDirection.rtl,
       child: Material(
         color: Colors.white,
@@ -403,7 +459,7 @@ class PdfService {
                     color: AppColors.primary,
                     shape: BoxShape.circle,
                   ),
-                  child: const Text('Ø£',
+                  child: const Text('أ',
                       style: TextStyle(
                           color: Colors.white,
                           fontSize: 20,
@@ -413,11 +469,11 @@ class PdfService {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Ø£Ø³Ø§ØªØ°Ø© Ø§Ù‚Ø±Ø£',
+                    Text('أساتذة اقرأ',
                         style: AppText.bold(15)
                             .copyWith(color: AppColors.primary)),
                     Text(
-                      'Ø§Ù„Ø£Ø³Ø¨ÙˆØ¹ Ù…Ù† ${dateFmt.format(r.start)} Ø¥Ù„Ù‰ ${dateFmt.format(r.end)}',
+                      'الأسبوع من ${dateFmt.format(r.start)} إلى ${dateFmt.format(r.end)}',
                       style: AppText.muted(11),
                     ),
                   ],
@@ -426,42 +482,44 @@ class PdfService {
               const SizedBox(height: 10),
               Divider(color: AppColors.border),
               const SizedBox(height: 10),
-              Text('ØªÙ‚Ø±ÙŠØ± Ø§Ù„Ø­Ø¶ÙˆØ± Ø§Ù„Ø£Ø³Ø¨ÙˆØ¹ÙŠ',
+              Text('تقرير الحضور الأسبوعي',
                   style: AppText.heading(17)
                       .copyWith(color: AppColors.primary)),
               const SizedBox(height: 8),
               Row(children: [
-                Expanded(child: Text('Ø§Ù„Ø£Ø³ØªØ§Ø°: ${teacher.name}',
+                Expanded(child: Text('الأستاذ: ${teacher.name}',
                     style: AppText.bold(14))),
                 Text(teacher.phone, style: AppText.muted(13)),
               ]),
               const SizedBox(height: 4),
               Text(
-                'Ø§Ù„Ù…Ø§Ø¯Ø©: ${teacher.subject ?? 'â€”'}   |   Ø§Ù„Ø£Ù‚Ø³Ø§Ù…: ${teacher.section ?? 'â€”'}',
+                'المادة: ${teacher.subject ?? '—'}   |   الأقسام: ${teacher.section ?? '—'}',
                 style: AppText.muted(13),
               ),
               const SizedBox(height: 14),
-              Text('Ù…Ù„Ø®Øµ Ø§Ù„Ø­Ø¶ÙˆØ± ÙˆØ§Ù„ØºÙŠØ§Ø¨',
+              Divider(color: AppColors.border),
+              const SizedBox(height: 10),
+              Text('ملخص الحضور والغياب',
                   style: AppText.bold(14).copyWith(color: AppColors.primary)),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
               Row(children: [
                 Expanded(
                     child: _statBox(
-                        'Ø­Ø§Ø¶ÙØ±', '${r.present}', bgGreen, fgGreen, Icons.check_circle_outline)),
+                        'حاضِر', '${r.present}', bgGreen, fgGreen, Icons.check_circle_outline)),
                 const SizedBox(width: 8),
                 Expanded(
                     child: _statBox(
-                        'Ù…ØªØ£Ø®ÙØ±', '${r.late}', bgAmber, fgAmber, Icons.schedule)),
+                        'متأخِر', '${r.late}', bgAmber, fgAmber, Icons.schedule)),
                 const SizedBox(width: 8),
                 Expanded(
-                    child: _statBox('ØºØ§Ø¦Ø¨', '${r.absent}', bgRed, fgRed,
+                    child: _statBox('غائب', '${r.absent}', bgRed, fgRed,
                         Icons.cancel_outlined)),
               ]),
               const SizedBox(height: 10),
               Row(children: [
                 Expanded(
                     child: _statBox(
-                        'Ø³Ø§Ø¹Ø§Øª Ø§Ù„Ø­Ø¶ÙˆØ±',
+                        'ساعات الحضور',
                         _fmtHoursShort(r.attendedMinutes),
                         bgGreen,
                         fgGreen,
@@ -469,7 +527,7 @@ class PdfService {
                 const SizedBox(width: 8),
                 Expanded(
                     child: _statBox(
-                        'Ø³Ø§Ø¹Ø§Øª Ø§Ù„ØºÙŠØ§Ø¨',
+                        'ساعات الغياب',
                         _fmtHoursShort(r.absentMinutes),
                         bgRed,
                         fgRed,
@@ -477,44 +535,110 @@ class PdfService {
                 const SizedBox(width: 8),
                 Expanded(
                     child: _statBox(
-                        'Ø¥Ø¬Ù…Ø§Ù„ÙŠ Ø§Ù„Ø³Ø§Ø¹Ø§Øª',
+                        'إجمالي الساعات',
                         _fmtHoursShort(r.totalMinutes),
                         AppColors.primarySoft,
                         AppColors.primary,
                         Icons.access_time_rounded)),
               ]),
-              const SizedBox(height: 14),
+            ],
+          ),
+        ),
+      ),
+    ));
+
+    // صفحات التفاصيل
+    if (days.isEmpty) {
+      pages.add(_weeklyDetailsPage(
+        0,
+        [
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Text('لا توجد حصص مجدولة هذا الأسبوع.',
+                style: AppText.muted(13)),
+          ),
+        ],
+        footer: null,
+      ));
+    } else {
+      final details = _weeklyDetails(days, byDay);
+      final chunks = _chunkRows(details, 12, 12);
+      for (var i = 0; i < chunks.length; i++) {
+        pages.add(_weeklyDetailsPage(
+          i,
+          chunks[i],
+          footer: i == chunks.length - 1
+              ? Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'إجمالي حصص الحضور: ${r.present + r.late}   |   حصص الغياب: ${r.absent}',
+                      style: AppText.bold(12.5),
+                    ),
+                    Text('مجموع الساعات: ${_fmtHoursShort(r.totalMinutes)}',
+                        style: AppText.muted(12)),
+                  ],
+                )
+              : null,
+        ));
+      }
+    }
+    return pages;
+  }
+
+  Directionality _weeklyDetailsPage(
+      int index, List<Widget> rows, {Widget? footer}) {
+    return Directionality(
+      textDirection: ui.TextDirection.rtl,
+      child: Material(
+        color: Colors.white,
+        child: Container(
+          width: _cardWidth,
+          padding: const EdgeInsets.fromLTRB(22, 20, 22, 18),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(color: AppColors.primary, width: 1.5),
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(children: [
+                Icon(Icons.event_note, size: 16, color: AppColors.primary),
+                const SizedBox(width: 8),
+                Text('تفاصيل الحصص',
+                    style: AppText.bold(14).copyWith(color: AppColors.primary)),
+              ]),
+              const SizedBox(height: 8),
               Divider(color: AppColors.border),
               const SizedBox(height: 6),
-              Text('ØªÙØ§ØµÙŠÙ„ Ø§Ù„Ø­ØµØµ',
-                  style: AppText.bold(14).copyWith(color: AppColors.primary)),
-              if (r.items.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Text('Ù„Ø§ ØªÙˆØ¬Ø¯ Ø­ØµØµ Ù…Ø¬Ø¯ÙˆÙ„Ø© Ù‡Ø°Ø§ Ø§Ù„Ø£Ø³Ø¨ÙˆØ¹.',
-                      style: AppText.muted(13)),
-                )
-              else
-                ..._weeklyDetails(days, byDay),
-              const SizedBox(height: 8),
-              Divider(color: AppColors.border),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Ø¥Ø¬Ù…Ø§Ù„ÙŠ Ø­ØµØµ Ø§Ù„Ø­Ø¶ÙˆØ±: ${r.present + r.late}   |   Ø­ØµØµ Ø§Ù„ØºÙŠØ§Ø¨: ${r.absent}',
-                    style: AppText.bold(12.5),
-                  ),
-                  Text('Ù…Ø¬Ù…ÙˆØ¹ Ø§Ù„Ø³Ø§Ø¹Ø§Øª: ${_fmtHoursShort(r.totalMinutes)}',
-                      style: AppText.muted(12)),
-                ],
-              ),
+              ...rows,
+              if (footer != null) ...[
+                const SizedBox(height: 8),
+                Divider(color: AppColors.border),
+                const SizedBox(height: 8),
+                footer,
+              ],
             ],
           ),
         ),
       ),
     );
+  }
+
+  /// تقسيم قائمة الصفوف على صفحات: أول صفحة تسع [first] صفاً، والباقي [next].
+  List<List<Widget>> _chunkRows(List<Widget> rows, int first, int next) {
+    if (rows.isEmpty) return const [];
+    final out = <List<Widget>>[];
+    var i = 0;
+    var take = first;
+    while (i < rows.length) {
+      final end = (i + take < rows.length) ? i + take : rows.length;
+      out.add(rows.sublist(i, end));
+      i = end;
+      take = next;
+    }
+    return out;
   }
 
   Widget _statBox(
@@ -561,10 +685,10 @@ class PdfService {
       ));
       for (final it in items) {
         final (bg, fg, label) = switch (it.status) {
-          'present' => (AppColors.presentSoft, AppColors.present, 'Ø­Ø§Ø¶Ø±'),
-          'late' => (AppColors.lateSoft, AppColors.late, 'Ù…ØªØ£Ø®Ø±'),
-          'absent' => (AppColors.absentSoft, AppColors.absent, 'ØºØ§Ø¦Ø¨'),
-          _ => (AppColors.primarySoft, AppColors.primary, 'Ù‚Ø§Ø¯Ù…Ø©'),
+          'present' => (AppColors.presentSoft, AppColors.present, 'حاضر'),
+          'late' => (AppColors.lateSoft, AppColors.late, 'متأخر'),
+          'absent' => (AppColors.absentSoft, AppColors.absent, 'غائب'),
+          _ => (AppColors.primarySoft, AppColors.primary, 'قادمة'),
         };
         rows.add(Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
@@ -581,7 +705,7 @@ class PdfService {
                 color: AppColors.primary,
                 borderRadius: BorderRadius.circular(7),
               ),
-              child: Text('${it.startTime} â€“ ${it.endTime}',
+              child: Text('${it.startTime} – ${it.endTime}',
                   style: AppText.white(11.5)),
             ),
             const SizedBox(width: 10),
@@ -604,7 +728,7 @@ class PdfService {
     return rows;
   }
 
-  /// Ø§Ù„ØªÙ‚Ø· Ù…Ø­ØªÙˆÙ‰ Ø§Ù„Ù€ Widget ÙƒØµÙˆØ±Ø© PNG Ø¹Ø¨Ø± Ø¹Ø±Ø¶Ù‡ Ø®Ø§Ø±Ø¬ Ø§Ù„Ø´Ø§Ø´Ø© ÙÙŠ Ø§Ù„Ù€ Overlay.
+  /// التقط محتوى الـ Widget كصورة PNG عبر عرضه خارج الشاشة في الـ Overlay.
   Future<_Rendered> _capture(BuildContext context, Widget child) async {
     final key = GlobalKey();
     final overlay = Overlay.of(context);
@@ -647,7 +771,7 @@ class _Rendered {
 }
 
 class _WeekItem {
-  final int day; // 1 = Ø§Ù„Ø§Ø«Ù†ÙŠÙ† .. 7 = Ø§Ù„Ø£Ø­Ø¯
+  final int day; // 1 = الاثنين .. 7 = الأحد
   final String startTime;
   final String endTime;
   final String className;

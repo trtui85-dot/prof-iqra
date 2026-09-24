@@ -37,7 +37,6 @@ dependencies:
   supabase_flutter: ^2.17.2
   qr_flutter: ^4.1.0
   mobile_scanner: ^7.4.2
-  google_fonts: ^8.2.1
   intl: 0.20.2
   provider: ^6.1.5+1
   flutter_dotenv: ^6.0.1
@@ -78,6 +77,20 @@ flutter:
     - .env
     - assets/icon/iqra_logo.png
     - assets/sound/success_chime.wav
+
+  fonts:
+    - family: Thmanyah
+      fonts:
+        - asset: assets/fonts/Thmanyah-Regular.otf
+          weight: 400
+        - asset: assets/fonts/Thmanyah-Medium.otf
+          weight: 500
+        - asset: assets/fonts/Thmanyah-Bold.otf
+          weight: 700
+        - asset: assets/fonts/Thmanyah-Light.otf
+          weight: 300
+        - asset: assets/fonts/Thmanyah-Black.otf
+          weight: 900
 
 # ------------------ إعداد أيقونة التطبيق (flutter_launcher_icons) ------------------
 flutter_launcher_icons:

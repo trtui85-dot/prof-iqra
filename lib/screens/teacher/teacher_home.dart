@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
+import '../../core/ios_bottom_bar.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import '../../models/app_notification.dart';
@@ -109,28 +110,26 @@ class _TeacherHomeState extends State<TeacherHome> {
         ],
       ),
       body: IndexedStack(index: _index, children: _tabs),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
-        indicatorColor: AppColors.primarySoft,
-        backgroundColor: AppColors.surface,
-        destinations: [
-          const NavigationDestination(
+      bottomNavigationBar: IosBottomBar(
+        index: _index,
+        onTap: (i) => setState(() => _index = i),
+        items: [
+          const IosTabItem(
             icon: Icon(Icons.calendar_month_outlined, color: AppColors.textMuted),
             selectedIcon: Icon(Icons.calendar_month, color: AppColors.primary),
             label: 'جدولي',
           ),
-          const NavigationDestination(
+          const IosTabItem(
             icon: Icon(Icons.qr_code_scanner, color: AppColors.textMuted),
             selectedIcon: Icon(Icons.qr_code_scanner, color: AppColors.primary),
             label: 'مسح الحضور',
           ),
-          const NavigationDestination(
+          const IosTabItem(
             icon: Icon(Icons.history_outlined, color: AppColors.textMuted),
             selectedIcon: Icon(Icons.history, color: AppColors.primary),
             label: 'سجلّي',
           ),
-          NavigationDestination(
+          IosTabItem(
             icon: Badge(
               isLabelVisible: _unread > 0,
               label: Text('$_unread'),

@@ -7,6 +7,7 @@ import '../core/widgets.dart';
 import '../models/app_user.dart';
 import '../services/auth_service.dart';
 import 'admin/admin_home.dart';
+import 'legal_page.dart';
 import 'teacher/teacher_home.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -132,6 +133,33 @@ class _LoginScreenState extends State<LoginScreen> {
                     'تسجيل الدخول برقم الهاتف وكود PIN فقط',
                     style: AppText.muted(12),
                     textAlign: TextAlign.center,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Center(
+                  child: Wrap(
+                    alignment: WrapAlignment.center,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 4,
+                    children: [
+                      TextButton(
+                        onPressed: () => LegalPage.show(
+                          context,
+                          title: 'شروط الاستخدام',
+                          sections: kTermsOfUseSections,
+                        ),
+                        child: const Text('شروط الاستخدام'),
+                      ),
+                      Text('•', style: AppText.muted(12)),
+                      TextButton(
+                        onPressed: () => LegalPage.show(
+                          context,
+                          title: 'سياسة الخصوصية',
+                          sections: kPrivacyPolicySections,
+                        ),
+                        child: const Text('سياسة الخصوصية'),
+                      ),
+                    ],
                   ),
                 ),
               ],

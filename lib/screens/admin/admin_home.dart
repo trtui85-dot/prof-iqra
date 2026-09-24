@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/ios_bottom_bar.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import '../../models/app_user.dart';
@@ -65,28 +66,26 @@ class _AdminHomeState extends State<AdminHome> {
         ],
       ),
       body: IndexedStack(index: _index, children: _tabs),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
-        indicatorColor: AppColors.primarySoft,
-        backgroundColor: AppColors.surface,
-        destinations: const [
-          NavigationDestination(
+      bottomNavigationBar: IosBottomBar(
+        index: _index,
+        onTap: (i) => setState(() => _index = i),
+        items: const [
+          IosTabItem(
             icon: Icon(Icons.groups_outlined, color: AppColors.textMuted),
             selectedIcon: Icon(Icons.groups, color: AppColors.primary),
             label: 'اليوم',
           ),
-          NavigationDestination(
+          IosTabItem(
             icon: Icon(Icons.people_outline, color: AppColors.textMuted),
             selectedIcon: Icon(Icons.people, color: AppColors.primary),
             label: 'الأساتذة',
           ),
-          NavigationDestination(
+          IosTabItem(
             icon: Icon(Icons.bar_chart_outlined, color: AppColors.textMuted),
             selectedIcon: Icon(Icons.bar_chart, color: AppColors.primary),
             label: 'التقارير',
           ),
-          NavigationDestination(
+          IosTabItem(
             icon: Icon(Icons.qr_code_2_outlined, color: AppColors.textMuted),
             selectedIcon: Icon(Icons.qr_code_2, color: AppColors.primary),
             label: 'كود الدخول',

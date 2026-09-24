@@ -1,8 +1,9 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 /// التصميم: أبيض نظيف، بطاقات مريحة، لون تمييز أزرق داكن هادئ
+/// الخط: ثمانية (Thmanyah) مضمّن محلياً — يبدأ فوراً دون تحميل من الإنترنت
 class AppColors {
   static const primary = Color(0xFF1B3A5B);
   static const primaryLight = Color(0xFF2C5E8C);
@@ -21,12 +22,16 @@ class AppColors {
   static const absentSoft = Color(0xFFFFEBEE);
 }
 
+const _fontFamily = 'Thmanyah';
+
 TextStyle _ar(double size, FontWeight w, Color c, {double? height}) {
-  return GoogleFonts.ibmPlexSansArabic(
+  return TextStyle(
+    fontFamily: _fontFamily,
     fontSize: size,
     fontWeight: w,
     color: c,
     height: height,
+    letterSpacing: 0,
   );
 }
 
@@ -45,8 +50,20 @@ class AppText {
 ThemeData buildTheme() {
   final base = ThemeData(
     useMaterial3: true,
+    fontFamily: _fontFamily,
     brightness: Brightness.light,
     scaffoldBackgroundColor: AppColors.background,
+    splashFactory: InkSparkle.splashFactory,
+    pageTransitionsTheme: const PageTransitionsTheme(
+      builders: {
+        // انزلاق بنمط iOS في كل المنصات (سلاسة وقرب من تصميم آبل)
+        TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.windows: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.linux: CupertinoPageTransitionsBuilder(),
+      },
+    ),
     colorScheme: const ColorScheme.light(
       primary: AppColors.primary,
       secondary: AppColors.primary,
@@ -61,6 +78,7 @@ ThemeData buildTheme() {
       systemOverlayStyle: SystemUiOverlayStyle.dark,
       iconTheme: IconThemeData(color: AppColors.textDark),
       titleTextStyle: TextStyle(
+        fontFamily: _fontFamily,
         color: AppColors.textDark,
         fontSize: 19,
         fontWeight: FontWeight.w700,
@@ -121,6 +139,10 @@ ThemeData buildTheme() {
     ),
   );
   return base.copyWith(
-    textTheme: GoogleFonts.ibmPlexSansArabicTextTheme(base.textTheme),
+    textTheme: base.textTheme.apply(
+      fontFamily: _fontFamily,
+      bodyColor: AppColors.textDark,
+      displayColor: AppColors.textDark,
+    ),
   );
 }

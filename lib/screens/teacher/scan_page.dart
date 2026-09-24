@@ -1,4 +1,8 @@
+import 'dart:async';
+
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../core/theme.dart';
@@ -20,6 +24,7 @@ class _ScanPageState extends State<ScanPage> {
   final _controller =
       MobileScannerController(detectionSpeed: DetectionSpeed.noDuplicates);
   final _attendance = AttendanceService();
+  final _audio = AudioPlayer();
 
   _Phase _phase = _Phase.scanning;
   ScanResult? _result;
@@ -27,6 +32,7 @@ class _ScanPageState extends State<ScanPage> {
 
   @override
   void dispose() {
+    _audio.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -54,6 +60,10 @@ class _ScanPageState extends State<ScanPage> {
       }
       final result = await _attendance.scan(widget.teacher);
       if (mounted) {
+        unawaited(
+          _audio.play(AssetSource('sound/success_chime.wav')).catchError((_) {}),
+        );
+        HapticFeedback.mediumImpact();
         setState(() {
           _phase = _Phase.success;
           _result = result;
@@ -161,6 +171,8 @@ class _ScanPageState extends State<ScanPage> {
     final late = r.status == 'late';
     final time = _fmt(r.when);
     return Column(children: [
+      _SuccessBurst(late: late),
+      const SizedBox(height: 8),
       Container(
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
@@ -235,6 +247,106 @@ class _ScanPageState extends State<ScanPage> {
 
   static String _fmt(DateTime d) =>
       '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+}
+
+class _SuccessBurst extends StatefulWidget {
+  final bool late;
+  const _SuccessBurst({required this.late});
+
+  @override
+  State<_SuccessBurst> createState() => _SuccessBurstState();
+}
+
+class _SuccessBurstState extends State<_SuccessBurst>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c;
+  late final Animation<double> _ringScale;
+  late final Animation<double> _ringFade;
+  late final Animation<double> _checkScale;
+
+  @override
+  void initState() {
+    super.initState();
+    _c = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 950),
+    )..forward();
+    final ring = CurvedAnimation(parent: _c, curve: Curves.easeOutCubic);
+    _ringScale = Tween<double>(begin: 0.3, end: 1.0).animate(ring);
+    _ringFade = Tween<double>(begin: 0.55, end: 0.0).animate(ring);
+    _checkScale = CurvedAnimation(
+      parent: _c,
+      curve: const Interval(0.3, 1, curve: Curves.easeOutBack),
+    );
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color = widget.late ? AppColors.late : AppColors.present;
+    return SizedBox(
+      height: 148,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          ScaleTransition(
+            scale: _ringScale,
+            child: FadeTransition(
+              opacity: _ringFade,
+              child: Container(
+                width: 150,
+                height: 150,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: color, width: 6),
+                ),
+              ),
+            ),
+          ),
+          ScaleTransition(
+            scale: _ringScale,
+            child: FadeTransition(
+              opacity: _ringFade,
+              child: Container(
+                width: 112,
+                height: 112,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: color.withValues(alpha: .12),
+                ),
+              ),
+            ),
+          ),
+          ScaleTransition(
+            scale: _checkScale,
+            child: Container(
+              width: 92,
+              height: 92,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: color,
+                boxShadow: [
+                  BoxShadow(
+                    color: color.withValues(alpha: .35),
+                    blurRadius: 22,
+                    spreadRadius: 2,
+                  ),
+                ],
+              ),
+              child: const Center(
+                child: Icon(Icons.check_rounded, color: Colors.white, size: 54),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _ScanOverlayPainter extends CustomPainter {

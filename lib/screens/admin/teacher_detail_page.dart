@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:printing/printing.dart';
 
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import '../../models/app_user.dart';
 import '../../services/pdf_service.dart';
 import '../../services/user_service.dart';
+import 'pdf_preview_page.dart';
 import 'schedule_builder_page.dart';
 import 'teacher_form_page.dart';
 
@@ -71,9 +71,10 @@ class _TeacherDetailPageState extends State<TeacherDetailPage> {
         return;
       }
       busy.value = true;
-      await Printing.sharePdf(
-        bytes: bytes,
-        filename: filename,
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => PdfPreviewPage(bytes: bytes, filename: filename),
+        ),
       );
     } catch (e) {
       if (mounted) showError(context, 'فشل إنشاء ملف PDF.');

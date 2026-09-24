@@ -32,6 +32,31 @@ class LocalNotifService {
     _ready = true;
   }
 
+  /// إشعار لحظي فوري (يستخدم لإشعارات Firebase القادمة والتطبيق مفتوح)
+  static Future<void> showNow({
+    required String title,
+    required String body,
+  }) async {
+    if (!_ready) return;
+    const details = NotificationDetails(
+      android: AndroidNotificationDetails(
+        'iqra_alerts',
+        'إشعارات لحظية',
+        channelDescription: 'إشعارات فورية من التطبيق',
+        importance: Importance.high,
+        priority: Priority.high,
+        category: AndroidNotificationCategory.message,
+      ),
+      iOS: DarwinNotificationDetails(),
+    );
+    await _plugin.show(
+      id: DateTime.now().millisecondsSinceEpoch.toInt() & 0x7FFFFFFF,
+      title: title,
+      body: body,
+      notificationDetails: details,
+    );
+  }
+
   static Future<void> scheduleForWeek(List<ScheduleEntry> entries) async {
     await _plugin.cancelAllPendingNotifications();
     const details = NotificationDetails(

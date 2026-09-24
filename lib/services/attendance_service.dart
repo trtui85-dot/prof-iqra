@@ -27,6 +27,10 @@ class AttendanceService {
   static const qrPrefix = 'IQRA1:';
   static const lateGraceMinutes = 15;
 
+  /// إذا مضت 90 دقيقة على بداية الحصة دون مسح، تُعتبر غياباً تلقائياً
+  /// (مثال: حصة 08:00 → عند 09:30 تُسجَّل غياب تلقائياً).
+  static const autoAbsentMinutes = 90;
+
   /// التحقق من أن رمز QR الممسوح هو رمز الإدارة الحالي
   Future<bool> verifyQr(String payload) async {
     if (!payload.startsWith(qrPrefix)) return false;
@@ -40,11 +44,15 @@ class AttendanceService {
     return res != null && res['value'] == scannedSecret;
   }
 
-  /// مسح واحد: إن وُجدت جلسة مفتوحة → انصراف، وإلا → حضور
+  /// مسح ذكي: يُسجّل الغياب التلقائي للحصص الماضية بلا مسح،
+  /// ثم يُسجّل حضور/انصراف الحصة الحالية.
   /// يُرمى AttendanceException مع رسالة واضحة إن لم تكن حصة مجدولة.
   Future<ScanResult> scan(AppUser teacher) async {
     final now = DateTime.now();
     final today = DateFormat('yyyy-MM-dd').format(now);
+
+    // تسجيل الغيابات التلقائية للحصص التي تجاوزت حد الـ 90 دقيقة
+    await autoMarkAbsentsToday();
 
     // 1) جلسة مفتوحة اليوم (حضور بلا انصراف) → انصراف
     final open = await db
@@ -103,15 +111,21 @@ class AttendanceService {
     });
 
     final time = DateFormat('HH:mm').format(now);
-    await NotificationService().notifyUser(
-      teacher.id,
-      isLate
-          ? 'تم تسجيل حضورك لحصة «${candidate.className}» الساعة $time (متأخر).'
-          : 'تم تسجيل حضورك لحصة «${candidate.className}» الساعة $time.',
-    );
     if (isLate) {
+      await NotificationService().notifyUser(
+        teacher.id,
+        'تم تسجيل حضورك لحصة «${candidate.className}» الساعة $time (متأخر بـ $lateMinutes دقيقة).',
+      );
       await NotificationService().notifyAdmins(
-        'تأخر الأستاذ ${teacher.name} عن حصة «${candidate.className}» الساعة $time.',
+        'الأستاذ ${teacher.name} حضر متأخراً لـ $lateMinutes دقيقة عن حصة «${candidate.className}» الساعة $time.',
+      );
+    } else {
+      await NotificationService().notifyUser(
+        teacher.id,
+        'تم تسجيل حضورك لحصة «${candidate.className}» الساعة $time.',
+      );
+      await NotificationService().notifyAdmins(
+        'الأستاذ ${teacher.name} سجّل حضوره لحصة «${candidate.className}» الساعة $time.',
       );
     }
 
@@ -121,6 +135,64 @@ class AttendanceService {
       status: status,
       when: now,
     );
+  }
+
+  /// تسجيل الغياب التلقائي تلقائياً لكل حصة اليوم التي تجاوزت
+  /// بدايتها بـ autoAbsentMinutes دون تسجيل حضور (وتطالبه الإدارة).
+  Future<void> autoMarkAbsentsToday() async {
+    final now = DateTime.now();
+    final dayFmt = DateFormat('yyyy-MM-dd');
+    final today = dayFmt.format(now);
+    final weekday = now.weekday;
+
+    final teachers = await db
+        .from('users')
+        .select('id, name')
+        .eq('role', 'teacher')
+        .eq('is_active', true);
+    if (teachers.isEmpty) return;
+
+    final logsRes = await db
+        .from('attendance_logs')
+        .select('teacher_id, schedule_id, class_name, entry_date')
+        .eq('entry_date', today);
+    final schedRes = await db
+        .from('schedule')
+        .select()
+        .eq('day_of_week', weekday);
+
+    final loggedKeys = <String>{
+      for (final l in logsRes)
+        '${l['teacher_id']}|${l['schedule_id'] ?? l['class_name']}',
+    };
+    final namesById = {for (final t in teachers) t['id'] as String: t['name'] as String};
+
+    for (final s in schedRes) {
+      final tId = s['teacher_id'] as String;
+      final teacherName = namesById[tId] ?? '—';
+      final entry = ScheduleEntry.fromJson(s);
+      final key = '$tId|${entry.id}';
+      if (loggedKeys.contains(key)) continue;
+
+      final lapsedLimit =
+          entry.startToday().add(const Duration(minutes: autoAbsentMinutes));
+      final missed = now.isAfter(lapsedLimit) || now.isAfter(entry.endToday());
+      if (!missed) continue;
+
+      await db.from('attendance_logs').insert({
+        'teacher_id': tId,
+        'schedule_id': entry.id,
+        'class_name': entry.className,
+        'entry_date': today,
+        'check_in_time': null,
+        'check_out_time': null,
+        'status': 'absent',
+        'late_minutes': null,
+      });
+      await NotificationService().notifyAdmins(
+        'الأستاذ $teacherName غاب عن حصة «${entry.className}» (لم يسجّل حضوره).',
+      );
+    }
   }
 
   static ScheduleEntry? _currentEntry(List<ScheduleEntry> entries, DateTime now) {
@@ -141,7 +213,12 @@ class AttendanceService {
   }
 
   Future<ScheduleEntry?> _entryById(String id) async {
-    final res = await db.from('schedule').select().eq('id', id).maybeSingle();
+    final res = await db
+        .from('schedule')
+        .select()
+        .eq('id', id)
+        .limit(1)
+        .maybeSingle();
     if (res == null) return null;
     return ScheduleEntry.fromJson(res);
   }
@@ -222,17 +299,34 @@ class AttendanceService {
             'lateMinutes': null,
           });
         } else {
-          rows.add({
-            'teacher': teacher,
-            'scheduleId': entry.id,
-            'className': entry.className,
-            'startTime': entry.startTime,
-            'endTime': entry.endTime,
-            'status': 'upcoming',
-            'checkIn': null,
-            'checkOut': null,
-            'lateMinutes': null,
-          });
+          final lapsedLimit = entry
+              .startToday()
+              .add(const Duration(minutes: autoAbsentMinutes));
+          if (now.isAfter(entry.endToday()) || now.isAfter(lapsedLimit)) {
+            rows.add({
+              'teacher': teacher,
+              'scheduleId': entry.id,
+              'className': entry.className,
+              'startTime': entry.startTime,
+              'endTime': entry.endTime,
+              'status': 'absent',
+              'checkIn': null,
+              'checkOut': null,
+              'lateMinutes': null,
+            });
+          } else {
+            rows.add({
+              'teacher': teacher,
+              'scheduleId': entry.id,
+              'className': entry.className,
+              'startTime': entry.startTime,
+              'endTime': entry.endTime,
+              'status': 'upcoming',
+              'checkIn': null,
+              'checkOut': null,
+              'lateMinutes': null,
+            });
+          }
         }
       }
       // حضور مسجّل لحصص لا تزال معرّفة بلا جدول؟ (نادر)

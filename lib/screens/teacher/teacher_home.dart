@@ -6,9 +6,11 @@ import '../../core/widgets.dart';
 import '../../models/app_notification.dart';
 import '../../models/app_user.dart';
 import '../../services/auth_service.dart';
+import '../../services/fcm_service.dart';
 import '../../services/local_notif_service.dart';
 import '../../services/notification_service.dart';
 import '../../services/schedule_service.dart';
+import '../../services/update_service.dart';
 import 'my_record_page.dart';
 import 'notifications_page.dart';
 import 'scan_page.dart';
@@ -50,6 +52,14 @@ class _TeacherHomeState extends State<TeacherHome> {
       final schedule =
           await ScheduleService().listForTeacher(widget.user.id);
       await LocalNotifService.scheduleForWeek(schedule);
+    } catch (_) {}
+    if (!mounted) return;
+    // إشعارات Firebase + فحص التحديث (لا تعطل أي تجربة عند الفشل)
+    try {
+      // ignore: discarded_futures
+      FcmService.registerToken(widget.user.id);
+      // ignore: discarded_futures
+      UpdateService.checkAndUpdate(context, force: false);
     } catch (_) {}
     if (mounted) setState(() {});
   }

@@ -4,6 +4,8 @@ import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import '../../models/app_user.dart';
 import '../../services/auth_service.dart';
+import '../../services/fcm_service.dart';
+import '../../services/update_service.dart';
 import 'live_attendance_page.dart';
 import 'qr_page.dart';
 import 'reports_page.dart';
@@ -30,6 +32,11 @@ class _AdminHomeState extends State<AdminHome> {
       ReportsPage(admin: widget.user),
       QrPage(admin: widget.user),
     ];
+    // إشعارات Firebase + تحديث فوري إجباري عند توفر نسخة جديدة
+    // ignore: discarded_futures
+    FcmService.registerToken(widget.user.id);
+    // ignore: discarded_futures
+    UpdateService.checkAndUpdate(context, force: true);
   }
 
   Future<void> _logout() async {

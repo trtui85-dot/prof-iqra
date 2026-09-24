@@ -50,6 +50,10 @@ dependencies:
   shared_preferences: ^2.5.5
   pdf: ^3.13.1
   printing: ^5.15.1
+  firebase_core: ^4.15.0
+  firebase_messaging: ^16.7.0
+  audioplayers: ^6.8.1
+  in_app_update: ^5.0.0
 
 dev_dependencies:
   flutter_test:
@@ -73,6 +77,7 @@ flutter:
   assets:
     - .env
     - assets/icon/iqra_logo.png
+    - assets/sound/success_chime.wav
 
 # ------------------ إعداد أيقونة التطبيق (flutter_launcher_icons) ------------------
 flutter_launcher_icons:

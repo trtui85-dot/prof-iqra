@@ -48,6 +48,8 @@ class _LiveAttendancePageState extends State<LiveAttendancePage> {
     // فكّ تسوية batching التابع لـ Realtime بتأخير صغير
     await Future.delayed(const Duration(milliseconds: 300));
     try {
+      // تسجيل الغيابات التلقائية للحصص التي تجاوزت حد الـ 90 دقيقة
+      await _service.autoMarkAbsentsToday();
       final rows = await _service.todaySummary();
       if (!mounted) return;
       setState(() {

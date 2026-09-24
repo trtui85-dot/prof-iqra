@@ -43,8 +43,15 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+/android/build/
 
 # Secrets — لا يتم رفعها أبداً للمستودع
 .env
 .env.*
 !.env.example
+
+# Firebase / توقيع المتاجر
+google-services.json
+GoogleService-Info.plist
+*.jks
+*.keystore

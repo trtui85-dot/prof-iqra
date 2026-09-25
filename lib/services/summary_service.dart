@@ -11,18 +11,39 @@ import '../models/attendance_log.dart';
 import '../models/schedule_entry.dart';
 import 'schedule_service.dart';
 
-class WeeklySummary {
+/// عنصر داخل نطاق التقرير (حصة واحدة بحالتها).
+class ReportItem {
+  final DateTime day;
+  final String startTime;
+  final String endTime;
+  final String className;
+  final String status; // present | late | absent | upcoming
+  final int minutes;
+  const ReportItem({
+    required this.day,
+    required this.startTime,
+    required this.endTime,
+    required this.className,
+    required this.status,
+    required this.minutes,
+  });
+}
+
+/// ملخّص نطاق زمني (يومي / أسبوعي / شهري) مع الحصص الكاملة.
+class RangeSummary {
   final DateTime start;
   final DateTime end;
+  final List<ReportItem> items;
   final int present;
   final int late;
   final int absent;
   final int upcoming;
   final int attendedMinutes;
   final int absentMinutes;
-  const WeeklySummary({
+  const RangeSummary({
     required this.start,
     required this.end,
+    required this.items,
     required this.present,
     required this.late,
     required this.absent,
@@ -32,21 +53,42 @@ class WeeklySummary {
   });
 
   int get totalMinutes => attendedMinutes + absentMinutes;
+  int get totalClasses => items.length;
 }
 
-/// بيانات ملخّص الأستاذ (معلوماته + عدد الحصص والساعات في جدوله).
+/// بيانات بطاقة الأستاذ: معلوماته + جدوله الكامل.
 class TeacherSummary {
   final AppUser teacher;
-  final int scheduleCount;
-  final int totalMinutes;
-  const TeacherSummary({
-    required this.teacher,
-    required this.scheduleCount,
-    required this.totalMinutes,
-  });
+  final List<ScheduleEntry> schedule;
+  const TeacherSummary({required this.teacher, required this.schedule});
+
+  int get scheduleCount => schedule.length;
+  int get totalMinutes {
+    var t = 0;
+    for (final e in schedule) {
+      t += SummaryService.timeToMin(e.endTime) - SummaryService.timeToMin(e.startTime);
+    }
+    return t;
+  }
 }
 
-/// تجميع بيانات الملخصات لحساب البطاقة والتقرير (بديل PDF).
+/// أنواع التقارير المتاحة.
+enum ReportRange { daily, weekly, monthly }
+
+extension ReportRangeX on ReportRange {
+  String get label => switch (this) {
+        ReportRange.daily => 'التقرير اليومي',
+        ReportRange.weekly => 'التقرير الأسبوعي',
+        ReportRange.monthly => 'التقرير الشهري',
+      };
+  String get fileName => switch (this) {
+        ReportRange.daily => 'iqra-daily-report',
+        ReportRange.weekly => 'iqra-weekly-report',
+        ReportRange.monthly => 'iqra-monthly-report',
+      };
+}
+
+/// تجميع بيانات الملخصات (البطاقة والتقارير).
 class SummaryService {
   static int timeToMin(String hhmm) {
     final p = hhmm.split(':');
@@ -64,24 +106,36 @@ class SummaryService {
   static DateTime mondayOf(DateTime d) => DateTime(d.year, d.month, d.day)
       .subtract(Duration(days: d.weekday - DateTime.monday));
 
-  Future<TeacherSummary> teacherSummary(AppUser teacher) async {
-    final schedule = await ScheduleService().listForTeacher(teacher.id);
-    var total = 0;
-    for (final e in schedule) {
-      total += timeToMin(e.endTime) - timeToMin(e.startTime);
-    }
-    return TeacherSummary(
-      teacher: teacher,
-      scheduleCount: schedule.length,
-      totalMinutes: total,
-    );
+  /// نطاق اليوم الحالي.
+  static (DateTime, DateTime) todayRange() {
+    final n = DateTime.now();
+    final d = DateTime(n.year, n.month, n.day);
+    return (d, d);
   }
 
-  /// تجميع الأرقام الأسبوعية (الاثنين..الأحد) مما يخص الأستاذ.
-  Future<WeeklySummary> weeklySummary(AppUser teacher, {DateTime? date}) async {
+  /// نطاق الأسبوع الحالي (الاثنين..الأحد).
+  static (DateTime, DateTime) weekRange() {
+    final n = DateTime.now();
+    final monday = mondayOf(n);
+    return (monday, monday.add(const Duration(days: 6)));
+  }
+
+  /// نطاق الشهر الحالي.
+  static (DateTime, DateTime) monthRange() {
+    final n = DateTime.now();
+    final first = DateTime(n.year, n.month, 1);
+    final last = DateTime(n.year, n.month + 1, 0);
+    return (first, last);
+  }
+
+  Future<TeacherSummary> teacherSummary(AppUser teacher) async {
+    final schedule = await ScheduleService().listForTeacher(teacher.id);
+    return TeacherSummary(teacher: teacher, schedule: schedule);
+  }
+
+  /// تجميع حصص ونطاق زمني مع حالتها (حضور/تأخر/غياب/قادمة).
+  Future<RangeSummary> rangeSummary(AppUser teacher, DateTime start, DateTime end) async {
     final dateFmt = DateFormat('yyyy-MM-dd');
-    final start = mondayOf(date ?? DateTime.now());
-    final end = start.add(const Duration(days: 6));
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
 
@@ -97,10 +151,8 @@ class SummaryService {
     final logs = logsRes.map(AttendanceLog.fromJson).toList();
     final sched = schedRes.map(ScheduleEntry.fromJson).toList();
 
-    var present = 0, late = 0, absent = 0, upcoming = 0;
-    var attendedMinutes = 0, absentMinutes = 0;
-
-    for (var i = 0; i < 7; i++) {
+    final items = <ReportItem>[];
+    for (var i = 0; i <= end.difference(start).inDays; i++) {
       final day = start.add(Duration(days: i));
       final dayKey = dateFmt.format(day);
       final dayEntries = sched.where((e) => e.dayOfWeek == day.weekday).toList()
@@ -121,25 +173,38 @@ class SummaryService {
         } else {
           status = 'absent';
         }
-        switch (status) {
-          case 'present':
-            present++;
-            attendedMinutes += minutes;
-          case 'late':
-            late++;
-            attendedMinutes += minutes;
-          case 'absent':
-            absent++;
-            absentMinutes += minutes;
-          default:
-            upcoming++;
-        }
+        items.add(ReportItem(
+          day: day,
+          startTime: e.startTime,
+          endTime: e.endTime,
+          className: e.className,
+          status: status,
+          minutes: minutes,
+        ));
       }
     }
 
-    return WeeklySummary(
+    var present = 0, late = 0, absent = 0, upcoming = 0;
+    var attendedMinutes = 0, absentMinutes = 0;
+    for (final it in items) {
+      switch (it.status) {
+        case 'present':
+          present++;
+          attendedMinutes += it.minutes;
+        case 'late':
+          late++;
+          attendedMinutes += it.minutes;
+        case 'absent':
+          absent++;
+          absentMinutes += it.minutes;
+        default:
+          upcoming++;
+      }
+    }
+    return RangeSummary(
       start: start,
       end: end,
+      items: items,
       present: present,
       late: late,
       absent: absent,
@@ -159,7 +224,7 @@ extension _FirstOrNullX<T> on List<T> {
   }
 }
 
-/// التقاط عنصر مرسوم خارج الشاشة كصورة PNG عالية الدقة (دقة 3x).
+/// التقاط عنصر كصورة PNG عالية الدقة (دقة 3x).
 Future<Uint8List> captureWidget(GlobalKey key) async {
   final boundary =
       key.currentContext!.findRenderObject()! as RenderRepaintBoundary;

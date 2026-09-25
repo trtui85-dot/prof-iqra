@@ -31,25 +31,98 @@ class _TeacherDetailPageState extends State<TeacherDetailPage> {
   Future<void> _openTeacherCard() => _openSummary(
         title: 'بطاقة الأستاذ',
         fileName: 'iqra-teacher-card',
-        buildCard: () async {
-          final s = await SummaryService().teacherSummary(widget.teacher);
-          return teacherSummaryCard(s);
+        buildCards: () async {
+          final summary = await SummaryService().teacherSummary(widget.teacher);
+          return teacherSummaryPages(summary);
         },
       );
 
-  Future<void> _openWeeklyReport() => _openSummary(
-        title: 'تقرير الحضور الأسبوعي',
-        fileName: 'iqra-weekly-report',
-        buildCard: () async {
-          final s = await SummaryService().weeklySummary(widget.teacher);
-          return weeklySummaryCard(widget.teacher, s);
-        },
-      );
+  Future<void> _openWeeklyReport() => _chooseReportRange();
+
+  Future<void> _chooseReportRange() async {
+    final range = await showModalBottomSheet<ReportRange>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('اختر نوع التقرير',
+                  style: AppText.heading(18), textAlign: TextAlign.center),
+              const SizedBox(height: 4),
+              Text('يومي أو أسبوعي أو شهري',
+                  style: AppText.muted(12), textAlign: TextAlign.center),
+              const SizedBox(height: 14),
+              _rangeOption(ctx, ReportRange.daily, Icons.today_outlined,
+                  'التقرير اليومي', 'حصص اليوم وحالتها'),
+              const SizedBox(height: 8),
+              _rangeOption(ctx, ReportRange.weekly, Icons.date_range_outlined,
+                  'التقرير الأسبوعي', 'من الاثنين إلى الأحد'),
+              const SizedBox(height: 8),
+              _rangeOption(ctx, ReportRange.monthly, Icons.calendar_month_outlined,
+                  'التقرير الشهري', 'الشهر الحالي كاملاً'),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (range == null || !mounted) return;
+    await _openSummary(
+      title: range.label,
+      fileName: range.fileName,
+      buildCards: () async {
+        final (start, end) = switch (range) {
+          ReportRange.daily => SummaryService.todayRange(),
+          ReportRange.weekly => SummaryService.weekRange(),
+          ReportRange.monthly => SummaryService.monthRange(),
+        };
+        final data = await SummaryService().rangeSummary(widget.teacher, start, end);
+        return reportPages(widget.teacher, data, range);
+      },
+    );
+  }
+
+  Widget _rangeOption(BuildContext ctx, ReportRange range, IconData icon,
+      String title, String subtitle) {
+    return InkWell(
+      onTap: () => Navigator.pop(ctx, range),
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: AppColors.primarySoft,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Row(children: [
+          Icon(icon, color: AppColors.primary),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: AppText.bold(15)),
+                const SizedBox(height: 2),
+                Text(subtitle, style: AppText.muted(12)),
+              ],
+            ),
+          ),
+          const Icon(Icons.chevron_left, color: AppColors.textMuted),
+        ]),
+      ),
+    );
+  }
 
   Future<void> _openSummary({
     required String title,
     required String fileName,
-    required Future<Widget> Function() buildCard,
+    required Future<List<Widget>> Function() buildCards,
   }) async {
     final busy = ValueNotifier<bool>(false);
     // نافذة انتظار أثناء تحضير الملخص
@@ -75,7 +148,7 @@ class _TeacherDetailPageState extends State<TeacherDetailPage> {
       ),
     );
     try {
-      final card = await buildCard();
+      final cards = await buildCards();
       if (!mounted) {
         busy.dispose();
         return;
@@ -83,8 +156,8 @@ class _TeacherDetailPageState extends State<TeacherDetailPage> {
       busy.value = true;
       await Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) =>
-              SummaryPreviewPage(title: title, fileName: fileName, card: card),
+          builder: (_) => SummaryPreviewPage(
+              title: title, fileName: fileName, cards: cards),
         ),
       );
     } catch (e) {
@@ -217,7 +290,7 @@ class _TeacherDetailPageState extends State<TeacherDetailPage> {
           _action(Icons.badge_outlined, 'بطاقة الأستاذ — عرض كصورة',
               AppColors.primary, _openTeacherCard),
           const SizedBox(height: 10),
-          _action(Icons.assessment_outlined, 'تقرير الحضور — عرض كصورة',
+          _action(Icons.assessment_outlined, 'تقرير الحضور — يومي/أسبوعي/شهري',
               AppColors.primary, _openWeeklyReport),
           const SizedBox(height: 10),
           _action(Icons.pin_outlined, 'إعادة تعيين كود PIN', AppColors.late,

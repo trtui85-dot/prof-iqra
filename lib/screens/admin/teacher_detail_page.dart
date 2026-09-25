@@ -4,9 +4,10 @@ import 'package:flutter/services.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import '../../models/app_user.dart';
-import '../../services/pdf_service.dart';
+import '../../services/summary_service.dart';
 import '../../services/user_service.dart';
-import 'pdf_preview_page.dart';
+import '../../widgets/landscape_cards.dart';
+import '../summary_preview_page.dart';
 import 'schedule_builder_page.dart';
 import 'teacher_form_page.dart';
 
@@ -27,22 +28,31 @@ class _TeacherDetailPageState extends State<TeacherDetailPage> {
     await _go(ScheduleBuilderPage(teacher: widget.teacher));
   }
 
-  Future<void> _downloadPdf() => _sharePdfAs(
-      () => PdfService().teacherProfilePdf(context, widget.teacher),
-      filename: 'iqra_teacher_profile.pdf',
-    );
-
-  Future<void> _downloadWeeklyReport() => _sharePdfAs(
-        () => PdfService().teacherWeeklyReportPdf(context, widget.teacher),
-        filename: 'iqra_weekly_report.pdf',
+  Future<void> _openTeacherCard() => _openSummary(
+        title: 'بطاقة الأستاذ',
+        fileName: 'iqra-teacher-card',
+        buildCard: () async {
+          final s = await SummaryService().teacherSummary(widget.teacher);
+          return teacherSummaryCard(s);
+        },
       );
 
-  Future<void> _sharePdfAs(
-    Future<Uint8List> Function() generate, {
-    required String filename,
+  Future<void> _openWeeklyReport() => _openSummary(
+        title: 'تقرير الحضور الأسبوعي',
+        fileName: 'iqra-weekly-report',
+        buildCard: () async {
+          final s = await SummaryService().weeklySummary(widget.teacher);
+          return weeklySummaryCard(widget.teacher, s);
+        },
+      );
+
+  Future<void> _openSummary({
+    required String title,
+    required String fileName,
+    required Future<Widget> Function() buildCard,
   }) async {
     final busy = ValueNotifier<bool>(false);
-    // نافذة انتظار أثناء توليد ملف PDF
+    // نافذة انتظار أثناء تحضير الملخص
     // ignore: unused_result
     showDialog<void>(
       context: context,
@@ -56,7 +66,7 @@ class _TeacherDetailPageState extends State<TeacherDetailPage> {
               const CircularProgressIndicator(color: AppColors.primary),
               const SizedBox(width: 18),
               Expanded(
-                child: Text(isBusy ? 'جارٍ التحضير...' : 'تجهيز ملف PDF...',
+                child: Text(isBusy ? 'جارٍ التحضير...' : 'تجهيز الملخص...',
                     style: AppText.normal(14)),
               ),
             ]),
@@ -65,7 +75,7 @@ class _TeacherDetailPageState extends State<TeacherDetailPage> {
       ),
     );
     try {
-      final bytes = await generate();
+      final card = await buildCard();
       if (!mounted) {
         busy.dispose();
         return;
@@ -73,11 +83,12 @@ class _TeacherDetailPageState extends State<TeacherDetailPage> {
       busy.value = true;
       await Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) => PdfPreviewPage(bytes: bytes, filename: filename),
+          builder: (_) =>
+              SummaryPreviewPage(title: title, fileName: fileName, card: card),
         ),
       );
     } catch (e) {
-      if (mounted) showError(context, 'فشل إنشاء ملف PDF.');
+      if (mounted) showError(context, 'تعذّر تحضير الملخص.');
     } finally {
       if (mounted) Navigator.of(context).pop();
       busy.dispose();
@@ -203,11 +214,11 @@ class _TeacherDetailPageState extends State<TeacherDetailPage> {
           _action(Icons.calendar_month_outlined, 'بناء الجدول الأسبوعي',
               AppColors.primary, _schedule),
           const SizedBox(height: 10),
-          _action(Icons.picture_as_pdf_outlined, 'تحميل بطاقة الأستاذ (PDF)',
-              AppColors.primary, _downloadPdf),
+          _action(Icons.badge_outlined, 'بطاقة الأستاذ — عرض كصورة',
+              AppColors.primary, _openTeacherCard),
           const SizedBox(height: 10),
-          _action(Icons.assignment_outlined, 'تحميل تقرير الحضور الأسبوعي (PDF)',
-              AppColors.primary, _downloadWeeklyReport),
+          _action(Icons.assessment_outlined, 'تقرير الحضور — عرض كصورة',
+              AppColors.primary, _openWeeklyReport),
           const SizedBox(height: 10),
           _action(Icons.pin_outlined, 'إعادة تعيين كود PIN', AppColors.late,
               _resetPin),

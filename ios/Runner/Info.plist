@@ -10,6 +10,10 @@
 	<string>أساتذة اقرأ</string>
 	<key>NSCameraUsageDescription</key>
 	<string>يُستخدم كاميرا الجهاز لمسح رمز QR لتسجيل الحضور والانصراف.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>يُستخدم لحفظ بطاقة الأستاذ وتقرير الحضور كصور في معرض الصور.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>يُستخدم لإضافة الصور المحفوظة إلى معرض الصور.</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>

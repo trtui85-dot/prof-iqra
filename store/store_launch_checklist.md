@@ -11,7 +11,7 @@
 | شاشة قوانين داخل التطبيق | ✅ الإعدادات + شاشة الدخول |
 | **حذف الحساب من داخل التطبيق** | ✅ (شرط إلزامي في Play + App Store) → ⚙ الإعدادات ← «حذف حسابي» |
 | نصوص المتجر | ✅ `play_listing.md` |
-| سياسة الخصوصية والشروط | ✅ ملفات جاهزة + روابط داخل التطبيق |
+| صفحات ويب قانونية جاهزة للنشر | ✅ `store/site/` (privacy / terms / delete-account / index) |
 | دفع رسم الاشتراك 25$ وإنشاء حساب مطوّر | ⬜ منك |
 | استضافة روابط السياسة/الشروط (HTTPS) | ⬜ منك |
 
@@ -43,12 +43,13 @@
 7. **إطلاق تدريجي**: Production → Roll out → 20% أولاً ثم 100%.
 
 ### استضافة الروابط القانونية (مطلوبة)
-انشر محتوى `privacy_policy.md` و `terms_of_service.md` كصفحات ويب عامة HTTPS عبر أي من:
-- GitHub Pages (مستودع عام + Settings → Pages)،
-- Notion (Share → Publish)،
-- أو موقع المؤسسة.
+**جاهز للنشر:** صفحات HTML عربية RTL في `store/site/` (انسخ المجلد كما هو لأي استضافة):
+- `privacy.html` ← رابط «Privacy policy» في Play Console وApp Store Connect.
+- `terms.html` ← شروط الاستخدام.
+- `delete-account.html` ← صفحة حذف الحساب (Play يطلب رابطاً يشرح كيف يحذف المستخدم حسابه).
+- `index.html` ← فهرس للروابط الثلاثة.
 
-ثم ضع الروابط في: Play Console (Privacy policy)، ولوحة التطبيق، وصفحة حذف الحساب.
+طرق النشر السريعة: GitHub Pages (مستودع عام + Settings → Pages) أو Notion (Share → Publish).
 
 ---
 
@@ -85,4 +86,5 @@
 ## ملفات مفيدة
 - `play_listing.md` — نصوص الإدراج الجاهزة.
 - `release_signing.md` — حالة مفتاح التوقيع + خطوات البناء الموقّع.
-- `privacy_policy.md` / `terms_of_service.md` — النصوص القانونية.
+- `site/` — صفحات HTML جاهزة للنشر (الخصوصية، الشروط، حذف الحساب).
+- `privacy_policy.md` / `terms_of_service.md` — النصوص القانونية بصيغة Markdown.

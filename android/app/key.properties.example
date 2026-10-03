@@ -1,0 +1,7 @@
+# مثال لملف إعداد التوقيع — انسخه إلى android/app/key.properties وضع كلمات المرور الحقيقية.
+# الملف الحقيقي مستثنى من Git (انظر .gitignore) ولا يشارك أبداً.
+storeFile=key.jks
+storePassword=YOUR_STORE_PASSWORD
+keyAlias=iqra
+keyPassword=YOUR_KEY_PASSWORD
+releaseSigningEnabled=true

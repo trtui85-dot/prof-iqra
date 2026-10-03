@@ -1,0 +1,96 @@
+# ============================================================
+#  Codemagic — بناء ونشر تطبيق iOS من جهاز Windows
+#  (لا يحتاج جهاز Mac)
+#  Utilisation :
+#    1) Créer un compte Codemagic  →  relier le dépôt GitHub
+#       trtui85-dot/prof-iqra
+#    2) Dans Codemagic → Team settings → Code signing identities /
+#       App Store Connect API key  (coller la clé .p8 + Key ID + Issuer ID)
+#    3) Définir les variables d'environnement :
+#         SUPABASE_URL, SUPABASE_ANON_KEY,
+#         APPLE_TEAM_ID, APP_STORE_CONNECT_KEY_ID,
+#         APP_STORE_CONNECT_ISSUER_ID,
+#         APP_STORE_CONNECT_API_KEY   (contenu du fichier .p8)
+#    4) Démarrer le workflow « iOS Release »
+# ============================================================
+
+name: Asatida Iqra
+type: flutter
+environment: production
+
+workflows:
+  # ---------------------------------------------------------
+  #  Build iOS uniquement (test / vérification)
+  # ---------------------------------------------------------
+  ios_build_only:
+    name: iOS Build (sans upload)
+    environment: production
+    instance_type: mac_mini_m2
+    xcode_version: "16.4"
+    ruby_version: 3.2.2
+    flutter_version: "3.44.6"
+    max_build_duration: 60
+    build: |
+      set -e
+      # ملف .env يُنشأ من متغيرات البيئة (لا تُرفع الأسرار إلى Git)
+      echo "SUPABASE_URL=$SUPABASE_URL" > .env
+      echo "SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY" >> .env
+      # جرف التبعيات وإعداد مشروع Xcode
+      flutter pub get
+      flutter build ios --release --config-only --no-codesign
+      cd ios
+      pod install
+      # إنشاء أرشيف موقّع
+      set -o pipefail
+      xcodebuild -workspace Runner.xcworkspace -scheme Runner \
+        -configuration Release \
+        -archivePath "$HOME/Runner.xcarchive" \
+        CODE_SIGN_ENTITLEMENTS=Runner/Runner.entitlements \
+        DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+        archive | xcfetch
+    signing:
+      app_store_connect:
+        api_key: $APP_STORE_CONNECT_API_KEY
+        api_key_id: $APP_STORE_CONNECT_KEY_ID
+        api_issuer_id: $APP_STORE_CONNECT_ISSUER_ID
+
+  # ---------------------------------------------------------
+  #  Build + رفع إلى App Store Connect
+  # ---------------------------------------------------------
+  ios_release:
+    name: iOS Release (App Store)
+    environment: production
+    instance_type: mac_mini_m2
+    xcode_version: "16.4"
+    ruby_version: 3.2.2
+    flutter_version: "3.44.6"
+    max_build_duration: 60
+    build: |
+      set -e
+      echo "SUPABASE_URL=$SUPABASE_URL" > .env
+      echo "SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY" >> .env
+      flutter pub get
+      flutter build ios --release --config-only --no-codesign
+      cd ios
+      pod install
+      set -o pipefail
+      xcodebuild -workspace Runner.xcworkspace -scheme Runner \
+        -configuration Release \
+        -archivePath "$HOME/Runner.xcarchive" \
+        CODE_SIGN_ENTITLEMENTS=Runner/Runner.entitlements \
+        DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+        archive | xcfetch
+    signing:
+      app_store_connect:
+        api_key: $APP_STORE_CONNECT_API_KEY
+        api_key_id: $APP_STORE_CONNECT_KEY_ID
+        api_issuer_id: $APP_STORE_CONNECT_ISSUER_ID
+    scripts:
+      - name: Upload to App Store Connect
+        script: |
+          set -e
+          xcrun altool --upload-app \
+            -f "$HOME/Runner.xcarchive/Payload/Runner.app" \
+            --type ios \
+            --apiKey "$APP_STORE_CONNECT_KEY_ID" \
+            --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID"

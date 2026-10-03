@@ -13,7 +13,7 @@ class AuthService {
     final res = await db
         .from('users')
         .select()
-        .eq('phone', SecureAuth.normalizePhone(phone))
+        .inFilter('phone', SecureAuth.phoneCandidates(phone))
         .eq('is_active', true)
         .order('created_at', ascending: true)
         .limit(1)

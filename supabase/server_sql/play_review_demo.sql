@@ -6,8 +6,10 @@
 -- ------------------------------------------------------------
 -- 1) انسخ هذا الملف والصقه في Supabase → SQL Editor ثم Run.
 -- 2) بيانات الدخول التي تعطيها للمراجع:
---      الأستاذ التجريبي : 0700000001  /  PIN : 1234
+--      الأستاذ التجريبي : 22123456  /  PIN : 1234
 --      الإدارة          : 0660000000  /  PIN : 1234
+--      (يقبل التطبيق إدخال الرقم مع رمز الدولة أو بدونه:
+--       22123456 أو +22222123456 أو 0022222123456)
 -- 3) بعد انتهاء المراجعة يمكنك حذف الحساب التجريبي من داخل التطبيق
 --    أو بالأمر في آخر الملف.
 -- 4) آمن للتشغيل أكثر من مرة (idempotent).
@@ -15,7 +17,7 @@
 
 -- 1) حساب الأستاذ التجريبي
 insert into public.users (role, name, phone, pin_hash, subject, section, is_active)
-values ('teacher', 'أستاذ تجريبي', '0700000001',
+values ('teacher', 'أستاذ تجريبي', '22123456',
         'd565658261b98a925d11dcdfe7fc39adf08e8ea258fe16250d2172a4c31ba85c',
         'اللغة العربية', 'القسم أ', true)
 on conflict (phone) do update
@@ -35,7 +37,7 @@ join (values
         (4, '08:00', '09:00', 'القسم ب — حصة 1'),
         (5, '10:00', '11:30', 'القسم ج — حصة 2')
      ) as v(day, start, finish, class_name) on true
-where u.phone = '0700000001'
+where u.phone = '22123456'
   and not exists (
     select 1 from public.schedule s
     where s.teacher_id = u.id and s.class_name = v.class_name
@@ -68,7 +70,7 @@ select
 from public.users u
 join public.schedule s on s.teacher_id = u.id
 join days on days.dow = s.day_of_week
-where u.phone = '0700000001'
+where u.phone = '22123456'
   and not exists (
     select 1 from public.attendance_logs l
     where l.teacher_id = u.id
@@ -78,6 +80,6 @@ where u.phone = '0700000001'
 
 -- ============================================================
 --  (اختياري) حذف حساب العرض بعد انتهاء مراجعة Google Play:
---  delete from public.users where phone = '0700000001';
+--  delete from public.users where phone = '22123456';
 --  (سجلات الحضور والجدول تُحذف تلقائياً بـ on delete cascade)
 -- ============================================================

@@ -64,11 +64,13 @@ workflows:
       pod install
       # إنشاء أرشيف موقّع
       set -o pipefail
+      TEAM_ARG=""
+      if [ -n "$APPLE_TEAM_ID" ]; then TEAM_ARG="DEVELOPMENT_TEAM=$APPLE_TEAM_ID"; fi
       xcodebuild -workspace Runner.xcworkspace -scheme Runner \
         -configuration Release \
         -archivePath "$HOME/Runner.xcarchive" \
         CODE_SIGN_ENTITLEMENTS=Runner/Runner.entitlements \
-        DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+        $TEAM_ARG \
         archive | xcfetch
     signing:
       app_store_connect:
@@ -96,11 +98,13 @@ workflows:
       cd ios
       pod install
       set -o pipefail
+      TEAM_ARG=""
+      if [ -n "$APPLE_TEAM_ID" ]; then TEAM_ARG="DEVELOPMENT_TEAM=$APPLE_TEAM_ID"; fi
       xcodebuild -workspace Runner.xcworkspace -scheme Runner \
         -configuration Release \
         -archivePath "$HOME/Runner.xcarchive" \
         CODE_SIGN_ENTITLEMENTS=Runner/Runner.entitlements \
-        DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+        $TEAM_ARG \
         archive | xcfetch
     signing:
       app_store_connect:

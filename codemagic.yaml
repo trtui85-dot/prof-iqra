@@ -20,6 +20,28 @@ environment: production
 
 workflows:
   # ---------------------------------------------------------
+  #  Build iOS SANS signature (aucun compte Apple requis)
+  #  Sert uniquement à vérifier que le projet compile.
+  # ---------------------------------------------------------
+  ios_check:
+    name: iOS Check (sans signature)
+    environment: production
+    instance_type: mac_mini_m2
+    xcode_version: "16.4"
+    ruby_version: 3.2.2
+    flutter_version: "3.44.6"
+    max_build_duration: 60
+    build: |
+      set -e
+      echo "SUPABASE_URL=$SUPABASE_URL" > .env
+      echo "SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY" >> .env
+      flutter pub get
+      flutter build ios --release --no-codesign
+    artifacts:
+      - build/ios/iphoneos/Runner.app
+      - build/ios/iphoneos/Runner.app/Info.plist
+
+  # ---------------------------------------------------------
   #  Build iOS uniquement (test / vérification)
   # ---------------------------------------------------------
   ios_build_only:

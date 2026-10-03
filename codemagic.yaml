@@ -1,17 +1,13 @@
 # ============================================================
-#  Codemagic — بناء ونشر تطبيق iOS من جهاز Windows
-#  (لا يحتاج جهاز Mac)
-#  Utilisation :
-#    1) Créer un compte Codemagic  →  relier le dépôt GitHub
-#       trtui85-dot/prof-iqra
-#    2) Dans Codemagic → Team settings → Code signing identities /
-#       App Store Connect API key  (coller la clé .p8 + Key ID + Issuer ID)
-#    3) Définir les variables d'environnement :
-#         SUPABASE_URL, SUPABASE_ANON_KEY,
-#         APPLE_TEAM_ID, APP_STORE_CONNECT_KEY_ID,
-#         APP_STORE_CONNECT_ISSUER_ID,
-#         APP_STORE_CONNECT_API_KEY   (contenu du fichier .p8)
-#    4) Démarrer le workflow « iOS Release »
+#  Codemagic — بناء iOS من جهاز Windows (بدون Mac)
+# ============================================================
+#  1) حساب Codemagic مرتبط بالمستودع: trtui85-dot/prof-iqra
+#  2) Team settings > Integrations > Developer Portal
+#     تم ربط مفتاح App Store Connect باسم:  Codemagic Iqra
+#     (هذا ما يتيح التوقيع التلقائي والرفع إلى App Store Connect)
+#  3) عند وجود متغيرات بيئة في Codemagic (SUPABASE_URL /
+#     SUPABASE_ANON_KEY) يتم استخدامها، وإلا يتم الرجوع إلى
+#     tool/ci_supabase.env
 # ============================================================
 
 name: Asatida Iqra
@@ -20,12 +16,10 @@ environment: production
 
 workflows:
   # ---------------------------------------------------------
-  #  Build iOS SANS signature (aucun compte Apple requis)
-  #  Sert uniquement à vérifier que le projet compile.
+  #  1) فحص الترجمة (بدون توقيع، بدون حساب Apple)
   # ---------------------------------------------------------
   ios_check:
     name: iOS Check (sans signature)
-    environment: production
     instance_type: mac_mini_m2
     xcode_version: "16.4"
     ruby_version: 3.2.2
@@ -33,90 +27,82 @@ workflows:
     max_build_duration: 60
     build: |
       set -e
-      echo "SUPABASE_URL=$SUPABASE_URL" > .env
-      echo "SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY" >> .env
+      if [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_ANON_KEY" ]; then
+        echo "SUPABASE_URL=$SUPABASE_URL" > .env
+        echo "SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY" >> .env
+      else
+        echo "::warning::variables Codemagic absentes — utilisation de tool/ci_supabase.env"
+        cp tool/ci_supabase.env .env
+      fi
       flutter pub get
       flutter build ios --release --no-codesign
     artifacts:
-      - build/ios/iphoneos/Runner.app
       - build/ios/iphoneos/Runner.app/Info.plist
 
   # ---------------------------------------------------------
-  #  Build iOS uniquement (test / vérification)
+  #  2) أرشيف موقّع (يتطلب adhésion Apple + App ID com.iqra.prof)
   # ---------------------------------------------------------
-  ios_build_only:
-    name: iOS Build (sans upload)
-    environment: production
+  ios_archive:
+    name: iOS Archive (signe, sans upload)
     instance_type: mac_mini_m2
     xcode_version: "16.4"
     ruby_version: 3.2.2
     flutter_version: "3.44.6"
     max_build_duration: 60
+    integrations:
+      app_store_connect: Codemagic Iqra
     build: |
       set -e
-      # ملف .env يُنشأ من متغيرات البيئة (لا تُرفع الأسرار إلى Git)
-      echo "SUPABASE_URL=$SUPABASE_URL" > .env
-      echo "SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY" >> .env
-      # جرف التبعيات وإعداد مشروع Xcode
+      if [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_ANON_KEY" ]; then
+        echo "SUPABASE_URL=$SUPABASE_URL" > .env
+        echo "SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY" >> .env
+      else
+        cp tool/ci_supabase.env .env
+      fi
       flutter pub get
       flutter build ios --release --config-only --no-codesign
       cd ios
       pod install
-      # إنشاء أرشيف موقّع
       set -o pipefail
-      TEAM_ARG=""
-      if [ -n "$APPLE_TEAM_ID" ]; then TEAM_ARG="DEVELOPMENT_TEAM=$APPLE_TEAM_ID"; fi
       xcodebuild -workspace Runner.xcworkspace -scheme Runner \
         -configuration Release \
         -archivePath "$HOME/Runner.xcarchive" \
         CODE_SIGN_ENTITLEMENTS=Runner/Runner.entitlements \
-        $TEAM_ARG \
         archive | xcfetch
-    signing:
-      app_store_connect:
-        api_key: $APP_STORE_CONNECT_API_KEY
-        api_key_id: $APP_STORE_CONNECT_KEY_ID
-        api_issuer_id: $APP_STORE_CONNECT_ISSUER_ID
 
   # ---------------------------------------------------------
-  #  Build + رفع إلى App Store Connect
+  #  3) الرفع إلى App Store Connect + TestFlight
   # ---------------------------------------------------------
   ios_release:
-    name: iOS Release (App Store)
-    environment: production
+    name: iOS Release (TestFlight)
     instance_type: mac_mini_m2
     xcode_version: "16.4"
     ruby_version: 3.2.2
     flutter_version: "3.44.6"
     max_build_duration: 60
+    integrations:
+      app_store_connect: Codemagic Iqra
     build: |
       set -e
-      echo "SUPABASE_URL=$SUPABASE_URL" > .env
-      echo "SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY" >> .env
+      if [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_ANON_KEY" ]; then
+        echo "SUPABASE_URL=$SUPABASE_URL" > .env
+        echo "SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY" >> .env
+      else
+        cp tool/ci_supabase.env .env
+      fi
       flutter pub get
       flutter build ios --release --config-only --no-codesign
       cd ios
       pod install
       set -o pipefail
-      TEAM_ARG=""
-      if [ -n "$APPLE_TEAM_ID" ]; then TEAM_ARG="DEVELOPMENT_TEAM=$APPLE_TEAM_ID"; fi
       xcodebuild -workspace Runner.xcworkspace -scheme Runner \
         -configuration Release \
         -archivePath "$HOME/Runner.xcarchive" \
         CODE_SIGN_ENTITLEMENTS=Runner/Runner.entitlements \
-        $TEAM_ARG \
         archive | xcfetch
-    signing:
+    publishing:
       app_store_connect:
-        api_key: $APP_STORE_CONNECT_API_KEY
-        api_key_id: $APP_STORE_CONNECT_KEY_ID
-        api_issuer_id: $APP_STORE_CONNECT_ISSUER_ID
-    scripts:
-      - name: Upload to App Store Connect
-        script: |
-          set -e
-          xcrun altool --upload-app \
-            -f "$HOME/Runner.xcarchive/Payload/Runner.app" \
-            --type ios \
-            --apiKey "$APP_STORE_CONNECT_KEY_ID" \
-            --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID"
+        auth: integration
+        submit_to_testflight: true
+        submit_to_app_store: false
+        copyright: "2026 Iqra Education Platform"

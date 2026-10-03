@@ -53,6 +53,8 @@ app.*.map.json
 # Firebase / توقيع المتاجر
 google-services.json
 GoogleService-Info.plist
+# مطلوب من Codemagic لبناء iOS (تطبيق العميل عام)
+!ios/Runner/GoogleService-Info.plist
 *.jks
 *.keystore
 android/app/key.properties

@@ -1,46 +1,88 @@
-# جاهزية النشر على Google Play + App Store
+# جاهزية النشر على Google Play ثم App Store — «أساتذة اقرأ»
 
-## 1) الروابط القانونية المطلوبة (تسجيلها في كلا المتجرين)
-- **سياسة الخصوصية**: ارفع/انشر `store/privacy_policy.md` على صفحة (GitHub Pages / Notion / موقع مؤسسة) ثم الصق الرابط.
-- **شروط الاستخدام**: انشر `store/terms_of_service.md` بنفس الطريقة.
-- لا يفتح التطبيقان أو يظهران قبل إدخال هذين الرابطين.
+## الحالة الآن (ما تم إنجازه)
 
-## 2) مشروع Firebase (لتشغيل الإشعارات الكاملة)
-1. قم بإنشاء مشروع في console.firebase.google.com.
-2. أضف تطبيق Android بمعرّف الحزمة `com.iqra.prof_iqra` وحمّل `google-services.json` إلى
-   `android/app/google-services.json` (البناء سيطبّق المكوّن تلقائياً إذا وُجد).
-3. أضف تطبيق iOS بمعرّف الباندل `com.iqra.profIqra` (أو المعرّف الفعلي) وضع
-   `GoogleService-Info.plist` في `ios/Runner/` وأدرجه في Xcode → Runner.
-4. من Firebase → Cloud Messaging → iOS Apps: ارفع ملف **APNs** (من Apple) أو استخدم مفتاح **APNs Auth Key**.
-5. بعد النشر على Supabase (أدناه) ضع الأسرار التالية في Supabase → Edge Functions → Settings:
-   - `GOOGLE_APPLICATION_CREDENTIALS` = محتوى JSON لحساب خدمة Firebase (Firebase → Project Settings → Service accounts → Generate new private key).
-   - `FIREBASE_PROJECT_ID` = معرف مشروع Firebase.
+| البند | الحالة |
+| --- | --- |
+| مفتاح توقيع تجاري + `key.properties` | ✅ جاهز (التفاصيل في `release_signing.md`) |
+| حزمة AAB موقّعة لـ Play | ✅ `C:\Users\dell\Desktop\prof-iqra-release.aab` (69.8MB) |
+| حزمة APK موقّعة | ✅ `C:\Users\dell\Desktop\prof-iqra-release.apk` (80.8MB) |
+| أيقونات Adaptive (Android + iOS) | ✅ 1024px |
+| شاشة قوانين داخل التطبيق | ✅ الإعدادات + شاشة الدخول |
+| **حذف الحساب من داخل التطبيق** | ✅ (شرط إلزامي في Play + App Store) → ⚙ الإعدادات ← «حذف حسابي» |
+| نصوص المتجر | ✅ `play_listing.md` |
+| سياسة الخصوصية والشروط | ✅ ملفات جاهزة + روابط داخل التطبيق |
+| دفع رسم الاشتراك 25$ وإنشاء حساب مطوّر | ⬜ منك |
+| استضافة روابط السياسة/الشروط (HTTPS) | ⬜ منك |
 
-## 3) نشر دالة الإشعارات وترحيلات Supabase (OF Edge)
-```
-supabase functions deploy fcm-notify --no-verify-jwt
-```
-ثم في SQL Editor شغّل بالترتيب:
-1. `supabase/migration_003_fcm.sql`
-2. `supabase/server_sql/admin_fcm_setup.sql` (بدّل سطر `https://vyokks...` إلى مرجع مشروعك الحقيقي إن اختلف)
-3. شغّل أيضاً أي ترحيلات سابقة لم تُشغَّل بعد (`migration_001`, `migration_002`).
+---
 
-## 4) التوقيع (Android – Google Play)
-انظر `store/release_signing.md` خطوة بخطوة مع keystore.
+## المرحلة 1 — Google Play (الأولوية)
 
-## 5) التوقيع (iOS – App Store)
-- الاشتراك في Apple Developer Program (99$/سنة).
-- عبر Xcode: Signing & Capabilities → Team → إنشاء Certificate + Provisioning.
-- أدرج دعائم **Push Notifications** و**Camera** في Runner.
-- رفع: Xcode → Product → Archive ثم صمّم الشاشات في App Store Connect.
+1. **حساب مطوّر**: pay.google.com → ادفع 25$ مرة واحدة → أنشئ تطبيقاً جديداً.
+   - اسم التطبيق: `أساتذة اقرأ`.
+   - الفئة: **Education**.
+   - أجب: لا يحتوي إعلانات، ولا يبيع بيانات.
+2. **التحقق من التطبيق (Verification)**: سنزّل LCA (حساب مطوّر Google) — خطوة إلزامية قبل أي نشر.
+3. **رفع الحزمة**: Create new release → Internal testing → ارفع `prof-iqra-release.aab`.
+   عند طلب مفتاح التوقيع اختر **Upload** وارفع `android/app/key.jks`
+   (alias: `iqra`، كلمة المرور في ملف النسخ الاحتياطية على جهازك).
+4. **App content**: املأ كل الأقسام:
+   - **Privacy policy**: رابط HTTPS (انظر «استضافة الروابط» أدناه).
+   - **Data safety**: البيانات الشخصية = الاسم، رقم الهاتف، سجلات الحضور، معرّف FCM.
+     الغرض: إدارة الحضور + الإشعارات. لا تُشارك البيانات ولا تُبيع.
+     التشفير: In transit نعم (HTTPS مع Supabase).
+   - **Ads**: لا. **Content rating**: أكمل الاستبيان (تطبيق تعليمي، بلا عنف أو محتوى حساس).
+   - **Account deletion**: التطبيق يوفّر حذف الحساب من داخله — اذكر ذلك في الحقل:
+     «يمكن للمستخدم حذف حسابه من داخل التطبيق عبر: الإعدادات ← حذف حسابي».
+5. **رابط صفحة حذف الحساب**: Play يطلب رابط ويب وشرحاً — ضع رابط صفحة على موقعك تشرح الخطوة نفسها.
+6. **اختبار قبل الإطلاق** — المسارات المتاحة:
+   - **Internal testing**: نشر فوري لمختبِرين يضيفون بريدك (20 مقعد).
+   - **Closed testing**: 20 مختبِراً على مسار مسجّل (أسرع طريق مؤهَّل للإنتاج).
+   - **Open testing**: 12 مختبِراً لمدة 14 يوماً متتالية (شرط الترجمة للإنتاج في بعض الحالات).
+7. **إطلاق تدريجي**: Production → Roll out → 20% أولاً ثم 100%.
 
-## 6) نصوص المتجر الجاهزة
-`store/play_listing.md` (عنوان + وصف + لقطات + ملاحظات مراجعة App Store).
+### استضافة الروابط القانونية (مطلوبة)
+انشر محتوى `privacy_policy.md` و `terms_of_service.md` كصفحات ويب عامة HTTPS عبر أي من:
+- GitHub Pages (مستودع عام + Settings → Pages)،
+- Notion (Share → Publish)،
+- أو موقع المؤسسة.
 
-## 7) قائمة فحص ما قبل الإطلاق
-- [ ] شغّلت migration_003 + admin_fcm_setup
-- [ ] google-services.json موجود و build النهائي وُقّع بـ keystore حقيقي
-- [ ] تفعيل FCM في Firebase و APNs للـ iOS
-- [ ] روابط السياسة والشروط حيّة (HTTPS) وأُدخلت في لوحتي المتجر
-- [ ] تسليم صلاحيات الكاميرا + Push في وصف المتجر (بخصوصية)
-- [ ] رفع الـ AAB الموقّع واختباره في Play Console (Internal Testing) قبل الإطلاق
+ثم ضع الروابط في: Play Console (Privacy policy)، ولوحة التطبيق، وصفحة حذف الحساب.
+
+---
+
+## المرحلة 2 — App Store (بعد نجاح Play)
+
+**متطلبات يمكنك تنفيذها بنفسك فقط** (من Windows لا يمكنني بناء iOS):
+- اشتراك Apple Developer Program (99$ سنوياً).
+- جهاز macOS + Xcode لبناء الـ IPA ورفعه.
+- App Store Connect: إنشاء التطبيق، الاسم، التصنيف (Education)، السعر/المجانية.
+- **App Privacy**: البيانات = الاسم، الهاتف، سجلات الحضور — الغرض: إدارة التطبيق، غير متعقّبة التتبّع.
+- **App Review Information**: قدّم حساب اختبار للمراجع:
+  - الهاتف: `0660000000`، PIN: `1234` (حساب الإدارة).
+  - ملاحظة للمراجع: التطبيق بالواجهة العربية RTL، ومسح QR يتطلب منح إذن الكاميرا.
+- **Screenshots**: iPhone 6.9" إلزامي، اتجاه عمودي على الأقل، 4–6 صور.
+- **APNs**: ارفع مفتاح APNs Auth Key في Firebase مقابل تطبيق iOS لتشغيل الإشعارات.
+
+### نقاط التقييم التي تنطبق على تطبيقك
+- سبب طلب الكاميرا موجود في `Info.plist` (مسح رمز QR).
+- سبب طلب الصور/المعرض موجود في `Info.plist` (حفظ صور التقارير).
+- لا يوجد تسجيل دخول خارجي ولا حسابات اجتماعية ولا إعلانات.
+- الحساب داخل التطبيق فقط (تسجيل دخول بهاتف + PIN) — مسموح ما دام بلا دفعرقمي.
+
+---
+
+## المرحلة 3 — التحديثات بعد النشر
+
+1. غيّر `version: 1.0.0+2` في `pubspec.yaml` (الرقم بعد `+` هو versionCode).
+2. `flutter build appbundle --release` (لا حاجة لإعادة توليد المفتاح).
+3. ارفع إلى Play Console، أو في Xcode: Product → Archive ثم Distribution.
+4. التطبيق يعرض «تحديث جديد» تلقائياً (Android عبر `UpdateService`).
+
+---
+
+## ملفات مفيدة
+- `play_listing.md` — نصوص الإدراج الجاهزة.
+- `release_signing.md` — حالة مفتاح التوقيع + خطوات البناء الموقّع.
+- `privacy_policy.md` / `terms_of_service.md` — النصوص القانونية.

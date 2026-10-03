@@ -26,15 +26,19 @@ class UserService {
     final normalized = SecureAuth.normalizePhone(phone);
     final dup = await _phoneExists(normalized);
     if (dup) throw Exception('رقم الهاتف مستخدم مسبقاً من قبل أستاذ آخر.');
-    final res = await db.from('users').insert({
-      'role': 'teacher',
-      'name': name.trim(),
-      'phone': normalized,
-      'pin_hash': SecureAuth.hashPin(pin),
-      'subject': ?_trimmed(subject),
-      'section': ?_trimmed(section),
-      'is_active': true,
-    }).select().single();
+    final res = await db
+        .from('users')
+        .insert({
+          'role': 'teacher',
+          'name': name.trim(),
+          'phone': normalized,
+          'pin_hash': SecureAuth.hashPin(pin),
+          'subject': ?_trimmed(subject),
+          'section': ?_trimmed(section),
+          'is_active': true,
+        })
+        .select()
+        .single();
     return AppUser.fromJson(res);
   }
 
@@ -74,6 +78,30 @@ class UserService {
   }
 
   Future<void> deleteTeacher(String id) async {
+    await db.from('users').delete().eq('id', id);
+  }
+
+  /// حذف حساب المستخدم نفسه مع كل بياناته (حسب طلب سياسات المتجر).
+  Future<void> deleteAccount(AppUser user) async {
+    final id = user.id;
+    Future<void> safe(Future<void> Function() op) async {
+      try {
+        await op();
+      } catch (_) {
+        // جدول قد لا يحتوي صفوفاً لهذا المستخدم
+      }
+    }
+
+    await safe(
+      () => db.from('notifications').delete().eq('user_id', id).then((_) {}),
+    );
+    await safe(
+      () =>
+          db.from('attendance_logs').delete().eq('teacher_id', id).then((_) {}),
+    );
+    await safe(
+      () => db.from('schedule').delete().eq('teacher_id', id).then((_) {}),
+    );
     await db.from('users').delete().eq('id', id);
   }
 

@@ -15,6 +15,7 @@ import '../../services/local_notif_service.dart';
 import '../../services/notification_service.dart';
 import '../../services/schedule_service.dart';
 import '../../services/update_service.dart';
+import '../settings_page.dart';
 import 'my_record_page.dart';
 import 'notifications_page.dart';
 import 'scan_page.dart';
@@ -103,6 +104,15 @@ class _TeacherHomeState extends State<TeacherHome> {
       appBar: AppBar(
         title: Text('أهلاً، ${widget.user.name}'),
         actions: [
+          IconButton(
+            tooltip: 'الإعدادات',
+            onPressed: () {
+              Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => SettingsPage(user: widget.user),
+              ));
+            },
+            icon: const Icon(Icons.settings_outlined, color: AppColors.textMuted),
+          ),
           IconButton(
             onPressed: _logout,
             icon: const Icon(Icons.logout, color: AppColors.textMuted),

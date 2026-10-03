@@ -6,6 +6,7 @@ import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import '../../models/app_user.dart';
 import '../../services/user_service.dart';
+import '../settings_page.dart';
 import 'teacher_detail_page.dart';
 import 'teacher_form_page.dart';
 
@@ -45,16 +46,18 @@ class _TeachersPageState extends State<TeachersPage> {
   }
 
   List<AppUser> get _visible => _all
-      .where((t) =>
-          _filter.isEmpty ||
-          t.name.contains(_filter) ||
-          t.phone.contains(_filter))
+      .where(
+        (t) =>
+            _filter.isEmpty ||
+            t.name.contains(_filter) ||
+            t.phone.contains(_filter),
+      )
       .toList();
 
   Future<void> _openDetail(AppUser teacher) async {
-    await Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => TeacherDetailPage(teacher: teacher),
-    ));
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => TeacherDetailPage(teacher: teacher)),
+    );
     _load();
   }
 
@@ -72,96 +75,123 @@ class _TeachersPageState extends State<TeachersPage> {
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-            child: TextField(
-              controller: _query,
-              onChanged: (v) => setState(() => _filter = v.trim()),
-              decoration: const InputDecoration(
-                hintText: 'بحث بالاسم أو الهاتف…',
-                prefixIcon: Icon(Icons.search, color: AppColors.textMuted),
-              ),
+            padding: const EdgeInsets.fromLTRB(16, 8, 8, 4),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _query,
+                    onChanged: (v) => setState(() => _filter = v.trim()),
+                    decoration: const InputDecoration(
+                      hintText: 'بحث بالاسم أو الهاتف…',
+                      prefixIcon: Icon(
+                        Icons.search,
+                        color: AppColors.textMuted,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                IconButton(
+                  tooltip: 'الإعدادات',
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => SettingsPage(user: widget.admin),
+                      ),
+                    );
+                  },
+                  icon: const Icon(
+                    Icons.settings_outlined,
+                    color: AppColors.textMuted,
+                  ),
+                ),
+              ],
             ),
           ),
           Expanded(
             child: _loading
                 ? const Center(
-                    child: CircularProgressIndicator(color: AppColors.primary))
+                    child: CircularProgressIndicator(color: AppColors.primary),
+                  )
                 : _visible.isEmpty
-                    ? EmptyState(_filter.isEmpty
+                ? EmptyState(
+                    _filter.isEmpty
                         ? 'لا يوجد أساتذة بعد.\nاضغط "إضافة أستاذ" لإنشاء حساب.'
-                        : 'لا توجد نتائج مطابقة.')
-                    : RefreshIndicator(
-                        onRefresh: _load,
-                        child: ListView.builder(
-                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 90),
-                          itemCount: _visible.length,
-                          itemBuilder: (context, i) {
-                            final t = _visible[i];
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: AppCard(
-                                onTap: () => _openDetail(t),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      width: 44,
-                                      height: 44,
-                                      alignment: Alignment.center,
-                                      decoration: BoxDecoration(
-                                        color: t.isActive
-                                            ? AppColors.primarySoft
-                                            : AppColors.border,
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: Text(
-                                        t.name.isNotEmpty ? t.name[0] : '?',
-                                        style: AppText.bold(16).copyWith(
+                        : 'لا توجد نتائج مطابقة.',
+                  )
+                : RefreshIndicator(
+                    onRefresh: _load,
+                    child: ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 90),
+                      itemCount: _visible.length,
+                      itemBuilder: (context, i) {
+                        final t = _visible[i];
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: AppCard(
+                            onTap: () => _openDetail(t),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 44,
+                                  height: 44,
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    color: t.isActive
+                                        ? AppColors.primarySoft
+                                        : AppColors.border,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Text(
+                                    t.name.isNotEmpty ? t.name[0] : '?',
+                                    style: AppText.bold(16).copyWith(
+                                      color: t.isActive
+                                          ? AppColors.primary
+                                          : AppColors.textMuted,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        t.name,
+                                        style: AppText.bold(14.5).copyWith(
                                           color: t.isActive
-                                              ? AppColors.primary
+                                              ? AppColors.textDark
                                               : AppColors.textMuted,
                                         ),
                                       ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            t.name,
-                                            style: AppText.bold(14.5).copyWith(
-                                              color: t.isActive
-                                                  ? AppColors.textDark
-                                                  : AppColors.textMuted,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 2),
-                                          Text(
-                                            [
-                                              if (t.subject != null)
-                                                t.subject!,
-                                              if (t.section != null)
-                                                t.section!,
-                                              t.phone,
-                                            ].join(' • '),
-                                            style: AppText.muted(12),
-                                          ),
-                                        ],
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        [
+                                          if (t.subject != null) t.subject!,
+                                          if (t.section != null) t.section!,
+                                          t.phone,
+                                        ].join(' • '),
+                                        style: AppText.muted(12),
                                       ),
-                                    ),
-                                    if (!t.isActive)
-                                      StatusChip('absent')
-                                    else
-                                      const Icon(Icons.chevron_left,
-                                          color: AppColors.textMuted),
-                                  ],
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
+                                if (!t.isActive)
+                                  StatusChip('absent')
+                                else
+                                  const Icon(
+                                    Icons.chevron_left,
+                                    color: AppColors.textMuted,
+                                  ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
           ),
         ],
       ),
@@ -169,9 +199,9 @@ class _TeachersPageState extends State<TeachersPage> {
   }
 
   Future<void> _create() async {
-    await Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => TeacherFormPage(),
-    ));
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => TeacherFormPage()));
     _load();
   }
 }

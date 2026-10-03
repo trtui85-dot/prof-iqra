@@ -1,34 +1,40 @@
 # توقيع نسخة النشر (Android — Google Play)
 
-> بالأمر أدناه إنشاء keystore + تفعيل التوقيع. انسخه شغّله في `android/app` أو فورًا بـ Purpose من OpenCode.
+## الحالة الحالية: ✅ تم التوقيع
+- مفتاح التوقيع التجاري **موجود**: `android/app/key.jks` (alias: `iqra`، RSA 4096، صلاحية 30 سنة).
+- `android/app/key.properties` موجود ويقرأه Gradle، ويجعل بناء `release` موقّعاً بالمفتاح التجاري تلقائياً.
+- كلمة المرور **غير موجودة في Git** (كلاهما في `.gitignore`)، وموثّقة في ملف نسخة احتياطية على جهازك.
+- آخر بناء موقّع ومُتحقَّق منه بـ `apksigner`:
+  `Signer #1 certificate DN: CN=Prof Iqra, OU=Mobile, O=Iqra Education Platform, L=Casablanca, ST=Casablanca, C=MA`
+- الملفات الجاهزة للرفع على سطح المكتب:
+  - `C:\Users\dell\Desktop\prof-iqra-release.aab` (69.8MB) — هذا ما يُرفع إلى Play Console.
+  - `C:\Users\dell\Desktop\prof-iqra-release.apk` (80.8MB) — للتجربة المباشرة على الأجهزة.
 
-## 1) توليد keystore (مرة واحدة فقط — احتفظ به سراً واحتياطياً!)
-```
-keytool -genkey -v -keystore android/app/key.jks -keyalg RSA -keysize 2048 -validity 10000 -alias iqra
-```
-سيطلب: كلمة مرور (اكتبها مرتين)، الاسم/الجهة، ثم `yes` أخيراً.
+## ⚠️ أولوية قصوى: نسخ احتياطي للمفتاح
+انسخ `android/app/key.jks` وملف كلمة المرور (الموجودان في `key.properties`) إلى وسيطين آمنين منفصلين.
+فقدانهما = استحالة نشر أي تحديث لاحق للتطبيق.
 
-## 2) ملف key.properties (مستثنى من Git تلقائياً)
-أنشئ `android/app/key.properties` بالمحتوى التالي:
-```
-storeFile=key.jks
-storePassword=كلمة_المرور_التي_اخترتها
-keyAlias=iqra
-keyPassword=كلمة_المرور_التي_اخترتها
-releaseSigningEnabled=true
-```
+## الأوامر (لإعادة البناء أو عند التحديث لاحقاً)
 
-## 3) البناء الموقّع
+### 1) البناء الموقّع
 ```
 flutter build appbundle --release
+flutter build apk --release
 ```
-الناتج: `build/app/outputs/bundle/release/app-release.aab`
+الناتج: `build/app/outputs/bundle/release/app-release.aab` و `build/app/outputs/flutter-apk/app-release.apk`
 
-## 4) الرفع إلى Play Console
-1. اذهب إلى Google Play Console → Application releases → Production.
-2. ارفع ملف الـ AAB. وفّق فيه **مفتاح توقيع التطبيق** (Play App Signing) — احتفظ بكلمة مرور keystore خاصتك.
-3. غيّر `versionCode`/`versionName` في `android/app/build.gradle.kts` (أو في pubspec `version:`) مع كل تحديث.
-4. ادفع رسم الاشتراك (25$ مرة واحدة) — الخطوة الوحيدة المتبقية خارج الكود.
+### 2) الرفع إلى Play Console
+1. Google Play Console → Releases → Production → Upload.
+2. ارفع ملف الـ AAB فقط (لا ترفع APK).
+3. عند طلب مفتاح توقيع التطبيق (Play App Signing): اختر **Upload** وارفع نفس `key.jks` باسم
+   `upload_key_prof_iqra` — سيطلب keystore password / key alias (`iqra`) / key password.
+   بعد نجاح ذلك ينشئ Google **مفتاح توقيع التطبيق** الخاص به ولا تحتاج uploaded key مجدداً.
+4. كل تحديث لاحق: غيّر `version: 1.0.0+2` في `pubspec.yaml` (أعلى رقم = versionCode) ثم أعد البناء.
+
+## إنشاء مفتاح جديد (فقط لو ضاع القديم ولا بد من البدء من الصفر)
+```
+keytool -genkeypair -v -keystore key.jks -alias iqra -keyalg RSA -keysize 4096 -validity 10950
+```
 
 ## ملاحظات أمان
 - لا ترفع `key.jks` أو `key.properties` إلى أي مستودع (مستثناة في `.gitignore`).

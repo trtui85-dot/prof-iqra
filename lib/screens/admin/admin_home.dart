@@ -7,6 +7,7 @@ import '../../models/app_user.dart';
 import '../../services/auth_service.dart';
 import '../../services/fcm_service.dart';
 import '../../services/update_service.dart';
+import '../settings_page.dart';
 import 'live_attendance_page.dart';
 import 'qr_page.dart';
 import 'reports_page.dart';
@@ -59,6 +60,15 @@ class _AdminHomeState extends State<AdminHome> {
       appBar: AppBar(
         title: Text('لوحة الإدارة'),
         actions: [
+          IconButton(
+            tooltip: 'الإعدادات',
+            onPressed: () {
+              Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => SettingsPage(user: widget.user),
+              ));
+            },
+            icon: const Icon(Icons.settings_outlined, color: AppColors.textMuted),
+          ),
           IconButton(
             onPressed: _logout,
             icon: const Icon(Icons.logout, color: AppColors.textMuted),

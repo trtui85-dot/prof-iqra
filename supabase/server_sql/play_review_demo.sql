@@ -63,8 +63,10 @@ select
   s.class_name,
   days.entry_date,
   case when days.status = 'absent' then null
-       else (s.start_time + (days.late_min || ' minutes')::interval)::time end,
-  case when days.status = 'absent' then null else s.end_time end,
+       else (current_date + s.start_time)::timestamptz
+            + (days.late_min || ' minutes')::interval end,
+  case when days.status = 'absent' then null
+       else (current_date + s.end_time)::timestamptz end,
   days.status,
   days.late_min
 from public.users u

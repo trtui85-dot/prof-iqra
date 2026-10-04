@@ -19,22 +19,9 @@ workflows:
   #  1) فحص الترجمة (بدون توقيع، بدون حساب Apple)
   # ---------------------------------------------------------
   ios_check:
-    name: iOS Check (sans signature)
+    name: iOS Check
     instance_type: mac_mini_m2
-    max_build_duration: 60
-    build: |
-      set -e
-      if [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_ANON_KEY" ]; then
-        echo "SUPABASE_URL=$SUPABASE_URL" > .env
-        echo "SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY" >> .env
-      else
-        echo "::warning::variables Codemagic absentes — utilisation de tool/ci_supabase.env"
-        cp tool/ci_supabase.env .env
-      fi
-      flutter pub get
-      flutter build ios --release --no-codesign
-    artifacts:
-      - build/ios/iphoneos/Runner.app/Info.plist
+    build: flutter pub get && flutter build ios --release --no-codesign
 
   # ---------------------------------------------------------
   #  2) أرشيف موقّع (يتطلب adhésion Apple + App ID com.iqra.prof)

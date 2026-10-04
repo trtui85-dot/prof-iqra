@@ -23,6 +23,8 @@ workflows:
     scripts:
       - name: Prepare app config
         script: cp tool/ci_supabase.env .env
+      - name: Use CocoaPods instead of Swift Package Manager
+        script: flutter config --no-enable-swift-package-manager
       - name: Resolve dependencies
         script: flutter pub get
       - name: Prepare Xcode project
@@ -61,6 +63,8 @@ workflows:
     scripts:
       - name: Prepare app config
         script: cp tool/ci_supabase.env .env
+      - name: Use CocoaPods instead of Swift Package Manager
+        script: flutter config --no-enable-swift-package-manager
       - name: Resolve dependencies
         script: flutter pub get
       - name: Prepare Xcode project

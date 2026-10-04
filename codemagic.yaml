@@ -35,7 +35,7 @@ workflows:
             -configuration Release \
             -archivePath "$HOME/Runner.xcarchive" \
             CODE_SIGN_ENTITLEMENTS=Runner/Runner.entitlements \
-            archive | xcfetch
+            archive
 
   # ---------------------------------------------------------
   #  Archive + envoi à App Store Connect / TestFlight
@@ -63,7 +63,7 @@ workflows:
             -configuration Release \
             -archivePath "$HOME/Runner.xcarchive" \
             CODE_SIGN_ENTITLEMENTS=Runner/Runner.entitlements \
-            archive | xcfetch
+            archive
     publishing:
       app_store_connect:
         auth: integration

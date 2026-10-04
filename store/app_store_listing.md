@@ -146,9 +146,13 @@ et le code PIN.
 ### Coordonnées
 | Champ | Valeur |
 |---|---|
-| Prénom / Nom | `‹à compléter›` |
-| Téléphone | `‹à compléter›` (avec `+222`) |
+| Prénom | `Abdellahi` |
+| Nom | `Boucheiloule` |
+| Téléphone | `2223644553` |
 | E-mail | `trtui85@gmail.com` |
+
+> ⚠️ Vérifier le format international du téléphone avant soumission : Apple
+> l'utilise pour contacter l'équipe de revue (attendu `+222 XX XX XX XX`).
 
 ### Compte de démonstration
 | Champ | Valeur |

@@ -1,58 +1,44 @@
 # ============================================================
-#  Codemagic — بناء iOS من جهاز Windows (بدون Mac)
-# ============================================================
-#  1) حساب Codemagic مرتبط بالمستودع: trtui85-dot/prof-iqra
-#  2) Team settings > Integrations > Developer Portal
-#     تم ربط مفتاح App Store Connect باسم:  Codemagic Iqra
-#     (هذا ما يتيح التوقيع التلقائي والرفع إلى App Store Connect)
-#  3) عند وجود متغيرات بيئة في Codemagic (SUPABASE_URL /
-#     SUPABASE_ANON_KEY) يتم استخدامها، وإلا يتم الرجوع إلى
-#     tool/ci_supabase.env
+#  Codemagic — build iOS depuis Windows (sans Mac)
+#  Clé API App Store Connect connectée côté équipe sous le nom :
+#  « Codemagic Iqra »
 # ============================================================
 
 name: Asatida Iqra
 type: flutter
-environment: production
 
 workflows:
   # ---------------------------------------------------------
-  #  1) فحص الترجمة (بدون توقيع، بدون حساب Apple)
-  # ---------------------------------------------------------
-  ios_check:
-    name: iOS Check
-    instance_type: mac_mini_m2
-    build: flutter pub get && flutter build ios --release --no-codesign
-
-  # ---------------------------------------------------------
-  #  2) أرشيف موقّع (يتطلب adhésion Apple + App ID com.iqra.prof)
+  #  Archive iOS signé (nécessite l'adhésion Apple Developer
+  #  et l'App ID com.iqra.prof)
   # ---------------------------------------------------------
   ios_archive:
-    name: iOS Archive (signe, sans upload)
+    name: iOS Archive
     instance_type: mac_mini_m2
     max_build_duration: 60
     integrations:
       app_store_connect: Codemagic Iqra
-    build: |
-      set -e
-      if [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_ANON_KEY" ]; then
-        echo "SUPABASE_URL=$SUPABASE_URL" > .env
-        echo "SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY" >> .env
-      else
-        cp tool/ci_supabase.env .env
-      fi
-      flutter pub get
-      flutter build ios --release --config-only --no-codesign
-      cd ios
-      pod install
-      set -o pipefail
-      xcodebuild -workspace Runner.xcworkspace -scheme Runner \
-        -configuration Release \
-        -archivePath "$HOME/Runner.xcarchive" \
-        CODE_SIGN_ENTITLEMENTS=Runner/Runner.entitlements \
-        archive | xcfetch
+    scripts:
+      - name: Prepare app config
+        script: cp tool/ci_supabase.env .env
+      - name: Resolve dependencies
+        script: flutter pub get
+      - name: Prepare Xcode project
+        script: flutter build ios --release --config-only --no-codesign
+      - name: Install pods
+        script: cd ios && pod install
+      - name: Archive
+        script: |
+          cd ios
+          set -o pipefail
+          xcodebuild -workspace Runner.xcworkspace -scheme Runner \
+            -configuration Release \
+            -archivePath "$HOME/Runner.xcarchive" \
+            CODE_SIGN_ENTITLEMENTS=Runner/Runner.entitlements \
+            archive | xcfetch
 
   # ---------------------------------------------------------
-  #  3) الرفع إلى App Store Connect + TestFlight
+  #  Archive + envoi à App Store Connect / TestFlight
   # ---------------------------------------------------------
   ios_release:
     name: iOS Release (TestFlight)
@@ -60,27 +46,27 @@ workflows:
     max_build_duration: 60
     integrations:
       app_store_connect: Codemagic Iqra
-    build: |
-      set -e
-      if [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_ANON_KEY" ]; then
-        echo "SUPABASE_URL=$SUPABASE_URL" > .env
-        echo "SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY" >> .env
-      else
-        cp tool/ci_supabase.env .env
-      fi
-      flutter pub get
-      flutter build ios --release --config-only --no-codesign
-      cd ios
-      pod install
-      set -o pipefail
-      xcodebuild -workspace Runner.xcworkspace -scheme Runner \
-        -configuration Release \
-        -archivePath "$HOME/Runner.xcarchive" \
-        CODE_SIGN_ENTITLEMENTS=Runner/Runner.entitlements \
-        archive | xcfetch
+    scripts:
+      - name: Prepare app config
+        script: cp tool/ci_supabase.env .env
+      - name: Resolve dependencies
+        script: flutter pub get
+      - name: Prepare Xcode project
+        script: flutter build ios --release --config-only --no-codesign
+      - name: Install pods
+        script: cd ios && pod install
+      - name: Archive
+        script: |
+          cd ios
+          set -o pipefail
+          xcodebuild -workspace Runner.xcworkspace -scheme Runner \
+            -configuration Release \
+            -archivePath "$HOME/Runner.xcarchive" \
+            CODE_SIGN_ENTITLEMENTS=Runner/Runner.entitlements \
+            archive | xcfetch
     publishing:
       app_store_connect:
         auth: integration
         submit_to_testflight: true
         submit_to_app_store: false
-        copyright: "2026 Iqra Education Platform"
+        copyright: 2026 Iqra Education Platform

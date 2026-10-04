@@ -20,6 +20,8 @@ workflows:
     environment:
       groups:
         - code-signing
+    artifacts:
+      - ios/build/ios/archive/Runner.xcarchive/**/*
     scripts:
       - name: Prepare app config
         script: cp tool/ci_supabase.env .env
@@ -44,7 +46,7 @@ workflows:
           cd ios
           xcodebuild -workspace Runner.xcworkspace -scheme Runner \
             -configuration Release \
-            -archivePath "$HOME/Runner.xcarchive" \
+            -archivePath "build/ios/archive/Runner.xcarchive" \
             CODE_SIGN_ENTITLEMENTS=Runner/Runner.entitlements \
             archive
 
@@ -60,6 +62,8 @@ workflows:
     environment:
       groups:
         - code-signing
+    artifacts:
+      - ios/build/ios/archive/Runner.xcarchive/**/*
     scripts:
       - name: Prepare app config
         script: cp tool/ci_supabase.env .env
@@ -84,7 +88,7 @@ workflows:
           cd ios
           xcodebuild -workspace Runner.xcworkspace -scheme Runner \
             -configuration Release \
-            -archivePath "$HOME/Runner.xcarchive" \
+            -archivePath "build/ios/archive/Runner.xcarchive" \
             CODE_SIGN_ENTITLEMENTS=Runner/Runner.entitlements \
             archive
     publishing:

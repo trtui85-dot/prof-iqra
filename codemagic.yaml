@@ -62,8 +62,6 @@ workflows:
     environment:
       groups:
         - code-signing
-    artifacts:
-      - ios/build/ios/archive/Runner.xcarchive/**/*
     scripts:
       - name: Prepare app config
         script: cp tool/ci_supabase.env .env
@@ -83,14 +81,10 @@ workflows:
         script: keychain add-certificates
       - name: Apply signing settings
         script: xcode-project use-profiles
-      - name: Archive
-        script: |
-          cd ios
-          xcodebuild -workspace Runner.xcworkspace -scheme Runner \
-            -configuration Release \
-            -archivePath "build/ios/archive/Runner.xcarchive" \
-            CODE_SIGN_ENTITLEMENTS=Runner/Runner.entitlements \
-            archive
+      - name: Build signed IPA
+        script: flutter build ipa --release --export-method app-store
+    artifacts:
+      - build/ios/ipa/*.ipa
     publishing:
       app_store_connect:
         auth: integration

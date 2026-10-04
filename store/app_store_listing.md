@@ -117,10 +117,18 @@ et le code PIN.
 |---|---|---|---|---|
 | Coordonnées — Nom | Oui | Oui | Non | Fonctionnalité de l'app |
 | Coordonnées — Numéro de téléphone | Oui | Oui | Non | Fonctionnalité de l'app |
-| Coordonnées — Adresse e-mail | Oui | Oui | Non | Fonctionnalité de l'app |
 | Identifiants — Identifiant utilisateur | Oui | Oui | Non | Fonctionnalité de l'app |
-| Données d'utilisation — Activité dans l'app | Oui | Oui | Non | Fonctionnalité de l'app |
-| **Suppression du compte** | **Oui** | — | — | Réglages → Supprimer le compte |
+| Identifiants — Identifiant d'appareil (jeton FCM) | Oui | Oui | Non | Fonctionnalité de l'app |
+| Données d'utilisation — Interaction avec le produit (pointages) | Oui | Oui | Non | Fonctionnalité de l'app |
+
+> **Ne pas déclarer d'adresse e-mail** : la table `users` ne contient aucun champ
+> e-mail (`id`, `role`, `name`, `phone`, `pin_hash`, `subject`, `section`,
+> `is_active`, `fcm_token`). Seuls l'e-mail de contact Apple et l'e-mail de
+> support sont utilisés, ils ne sont pas collectés par l'app.
+> Aucun SDK tiers d'analyse ou publicitaire n'est intégré (Firebase Messaging
+> uniquement, pour les notifications).
+
+> **Suppression du compte** : Oui (R�glages -> Supprimer le compte)
 
 > Chiffrement des données en transit : **HTTPS/TLS uniquement** (chiffrement standard du système).
 > Aucune donnée de santé, financière, de localisation précise ni de santé mentale.

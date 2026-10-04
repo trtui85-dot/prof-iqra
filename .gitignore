@@ -48,6 +48,7 @@ app.*.map.json
 # Secrets — لا يتم رفعها أبداً للمستودع
 .env
 .env.*
+!.env
 !.env.example
 
 # Firebase / توقيع المتاجر

@@ -21,7 +21,6 @@ workflows:
   ios_check:
     name: iOS Check (sans signature)
     instance_type: mac_mini_m2
-    xcode_version: "16.4"
     max_build_duration: 60
     build: |
       set -e
@@ -43,7 +42,6 @@ workflows:
   ios_archive:
     name: iOS Archive (signe, sans upload)
     instance_type: mac_mini_m2
-    xcode_version: "16.4"
     max_build_duration: 60
     integrations:
       app_store_connect: Codemagic Iqra
@@ -72,7 +70,6 @@ workflows:
   ios_release:
     name: iOS Release (TestFlight)
     instance_type: mac_mini_m2
-    xcode_version: "16.4"
     max_build_duration: 60
     integrations:
       app_store_connect: Codemagic Iqra

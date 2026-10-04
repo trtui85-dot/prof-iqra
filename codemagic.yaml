@@ -17,6 +17,9 @@ workflows:
     max_build_duration: 60
     integrations:
       app_store_connect: Codemagic Iqra
+    environment:
+      groups:
+        - code-signing
     scripts:
       - name: Prepare app config
         script: cp tool/ci_supabase.env .env
@@ -52,6 +55,9 @@ workflows:
     max_build_duration: 60
     integrations:
       app_store_connect: Codemagic Iqra
+    environment:
+      groups:
+        - code-signing
     scripts:
       - name: Prepare app config
         script: cp tool/ci_supabase.env .env

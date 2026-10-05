@@ -128,7 +128,7 @@ et le code PIN.
 > Aucun SDK tiers d'analyse ou publicitaire n'est intégré (Firebase Messaging
 > uniquement, pour les notifications).
 
-> **Suppression du compte** : Oui (R�glages -> Supprimer le compte)
+> **Suppression du compte** : Oui (R�glages -> Supprimer le compte)
 
 > Chiffrement des données en transit : **HTTPS/TLS uniquement** (chiffrement standard du système).
 > Aucune donnée de santé, financière, de localisation précise ni de santé mentale.
@@ -226,4 +226,107 @@ Compte administrateur de démonstration : 0660000000 / 1234
 - [ ] Notes de revue remplies + QR code de démonstration joint
 - [ ] Icône 1024 × 1024 uploadée
 - [ ] Captures iPhone 6,9" uploadées
-- [ ] Build sélectionné pour la soumission
+---
+
+## 9. Réponse à Apple — Guideline 2.1 (Information Needed)
+
+> À copier dans *Répondre à l'équipe de vérification* **et** dans le champ
+> *Notes* de la section App Review Information.
+
+```
+Hello App Review Team,
+
+Thank you for your message. Here is the complete information you requested.
+
+1. SCREEN RECORDING
+A screen recording captured on a physical iPhone running the latest version of
+iOS is attached. The recording starts from the app launch and walks through the
+full user flow: login, teacher home screen and weekly schedule, QR check-in,
+late detection, reports and image export, administrator dashboard and QR code
+display, and account deletion from Settings.
+
+2. APP PURPOSE AND TARGET AUDIENCE
+"Prof Iqra" (أساتذة اقرأ) is a staff attendance application for schools.
+A teacher scans the QR code displayed by the school to record entry and exit
+in a few seconds. The app automatically detects lateness (with the exact number
+of minutes), records absences automatically for any missed session, closes
+finished sessions automatically, and generates daily, weekly and monthly
+attendance reports that can be saved to the device photo gallery.
+Administrators get a live dashboard with manual corrections and an instant push
+notification on every check-in.
+
+Target audience: teachers and school administrators. The app is available to
+any school and is NOT restricted to a single organisation or to a single
+company's employees.
+
+Problem solved: paper attendance registers are slow, error-prone and easily
+lost, which creates payroll and reporting disputes.
+Value provided: attendance takes seconds instead of minutes, removes manual
+data entry errors, produces auditable records, and gives administrators
+real-time visibility of staff presence.
+
+3. SETUP AND ACCESS INSTRUCTIONS
+No registration or onboarding is required: an administrator creates the
+accounts directly from the administrator dashboard.
+
+Login: telephone number + 4-digit PIN.
+
+Demo accounts
+  Teacher account      : 22123456 / 1234
+  Administrator account: 0660000000 / 1234
+
+Main features
+  - Home tab        : the teacher's weekly schedule for the current day.
+  - Attendance tab  : QR scanner used to check in and check out.
+  - Reports tab     : daily, weekly and monthly attendance reports, with the
+                      ability to save a report as an image in the device photo
+                      gallery.
+  - Settings tab    : change PIN and delete the account.
+
+The QR code required for check-in is displayed inside the app, in the
+administrator's "QR" tab. To test the check-in, display that QR code on a
+second device (or a printed copy) and scan it with the Attendance tab.
+
+Account deletion: Settings > Delete account. Deletion removes the account,
+its schedule and its attendance records. This flow is shown in the recording.
+
+No special hardware is required. Minimum supported version: iOS 15.
+
+4. EXTERNAL SERVICES, TOOLS AND PLATFORMS
+  - Supabase (PostgreSQL database, Storage, Edge Functions) - backend for
+    accounts, schedules, attendance records and notifications.
+  - Firebase Cloud Messaging - delivery of push notifications on iOS via APNs.
+  - QR / barcode decoding - performed on-device using the device camera. No QR
+    content is stored or transmitted.
+All network traffic uses HTTPS (TLS 1.2+). The app contains NO advertising SDK,
+NO analytics or tracking SDK, NO payment processor, NO AI service and NO
+third-party login provider.
+
+5. REGIONAL DIFFERENCES
+None. The app behaves identically in all territories where it is available.
+The user interface is in Arabic with right-to-left layout. There is no
+geo-restriction, no region-specific content or behaviour, no localised
+functionality and no region-specific pricing.
+
+6. REGULATED INDUSTRY / PROTECTED THIRD-PARTY MATERIAL
+The app is not in a regulated industry. It is an internal school administration
+and attendance tool and provides no medical, financial, legal or other
+regulated service.
+The app does not include protected third-party material: the source code,
+graphics, icon, texts and screenshots are owned by the developer. The Arabic
+typefaces bundled with the app (Thmanyah by Boutros Fonts) are used under a
+valid commercial licence.
+
+7. PERSONAL DATA
+The app collects only the data needed for its own functionality: name,
+telephone number, user identifier, device notification token, and attendance
+records (check-in/check-out times and status). No data is linked to advertising
+or tracking. The user can delete their account and all associated data from
+the Settings tab. Privacy policy:
+https://trtui85-dot.github.io/prof-iqra-legal/privacy.html
+
+Please let us know if you need any further information.
+
+Best regards,
+Abdellahi Boucheiloule
+```
